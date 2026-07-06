@@ -423,6 +423,7 @@ committed template.
 | `test/rag.test.ts` | grounded retrieval + citation, vector ranking, empty store |
 | `test/embeddings.test.ts` | toy embedder determinism + unit-normalization |
 | `test/stream.test.ts` | SSE `stream()` mock output |
+| `test/transcripts.test.ts` | record/replay `fixtureKey` determinism, collision-resistance, hex format |
 
-CI (`.github/workflows/ci.yml`) runs typecheck → tests → arena gate on every push/PR, in mock mode,
-with no secrets.
+CI (`.github/workflows/ci.yml`) runs typecheck → tests → mock-arena gate → real-replay gate on every
+push (not on pull requests — see the trigger note in the workflow), in mock mode, with no secrets.

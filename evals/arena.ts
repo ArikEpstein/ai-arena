@@ -19,7 +19,7 @@ import { judgeAnswer } from "./judge.js";
 import { RECORD, REPLAY, saveFixtures } from "../src/transcripts.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const SCENARIO = (process.env.SCENARIO ?? "prompts") as "prompts" | "prompts-haiku" | "models" | "iterations";
+const SCENARIO = (process.env.SCENARIO ?? "prompts") as "prompts" | "models" | "iterations";
 
 // ── Prompt v1: minimal. v2: adds explicit instructions (chaining/reasoning/refusal). ──
 const PROMPT_V1 = `You are a support assistant for a loyalty platform. Use the tools to answer.`;
@@ -49,16 +49,6 @@ const SCENARIOS: Record<string, { label: string; runners: RunConfig[]; sameModel
       { label: "v1", model: MODELS.work, systemPrompt: PROMPT_V1, mock: { chains: false, reasons: false, refuses: false } },
       { label: "v2", model: MODELS.work, systemPrompt: PROMPT_V2, mock: { chains: true, reasons: true, refuses: true } },
       { label: "v3", model: MODELS.work, systemPrompt: PROMPT_V3, mock: { chains: true, reasons: true, refuses: true } },
-    ],
-  },
-  // Same idea as `prompts`, on a weaker model (Haiku) where the prompt actually changes behavior —
-  // a capable model (Sonnet) passes both prompts, so the real prompt win shows up here.
-  "prompts-haiku": {
-    label: "Prompt v1 vs v2 (Haiku)",
-    sameModel: true,
-    runners: [
-      { label: "Prompt v1 · haiku", model: MODELS.fast, systemPrompt: PROMPT_V1, mock: { chains: false, reasons: false, refuses: false } },
-      { label: "Prompt v2 · haiku", model: MODELS.fast, systemPrompt: PROMPT_V2, mock: { chains: true, reasons: true, refuses: true } },
     ],
   },
   // Different model → tradeoff of quality vs cost/latency

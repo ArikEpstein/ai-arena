@@ -17,6 +17,10 @@ import { dirname, join } from "node:path";
 export const RECORD = process.env.RECORD === "1";
 export const REPLAY = process.env.REPLAY === "1";
 
+// Mutually exclusive: recording writes fresh live output, replaying serves the file. Setting both
+// would silently no-op the record (replay wins in every call site), so fail loudly instead.
+if (RECORD && REPLAY) throw new Error("RECORD and REPLAY are mutually exclusive — set only one.");
+
 const FILE = join(dirname(fileURLToPath(import.meta.url)), "..", "evals", "fixtures", "transcripts.json");
 
 type Kind = "completions" | "judgments";

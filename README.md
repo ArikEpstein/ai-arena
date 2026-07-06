@@ -33,12 +33,14 @@ _Solo project — I designed and built the entire stack end-to-end, in strict Ty
 npm install
 npm run ci          # typecheck (strict) + 38 unit tests + evals gate — all green, no keys
 npm run arena       # A/B: prompt v1 vs v2 → writes web/dashboard.html
-open web/dashboard.html
+open web/dashboard.html   # Linux: xdg-open web/dashboard.html
 ```
 
-What you'll see: the **dashboard** shows prompt **v2 beating v1 (63% → 100%)** on the same model, the
-same latency, and ~the same cost — a **pure prompt win**, with a per-case breakdown of exactly what got
-fixed. That's the day-to-day workflow of an AI engineer: change a prompt, measure, prove it with a number.
+What you'll see: the **dashboard** shows prompt **v2 beating v1 (63% → 100%)** on the same model, latency,
+and ~cost — a clean prompt win, with a per-case breakdown of exactly what got fixed. That's the day-to-day
+AI-engineering loop: change a prompt, measure, prove it with a number. *(This default scenario is an
+illustrative **mock**; the harness also gates CI on **real recorded model runs** — see
+[Real results](#-real-results-recorded-and-replayed).)*
 
 ---
 
@@ -114,8 +116,8 @@ flowchart LR
 
 The dashboard above is a **mock illustration** of the prompt-versioning workflow — the capability gap is
 injected via a `MockProfile`, and the run is badged `mock`. But the harness also runs against **real
-recorded Claude responses**, replayed deterministically and offline, so **CI gates on genuine model
-behavior, not a stand-in.** `npm run arena:record` captures the live transcripts once (into
+recorded Claude responses**, replayed deterministically and offline, so **CI gates on genuine recorded
+model behavior, not a hand-authored stand-in.** `npm run arena:record` captures the live transcripts once (into
 `evals/fixtures/`); `npm run arena:replay` replays them with zero API calls, and CI runs it on every push.
 
 What the real recordings show:
@@ -126,9 +128,8 @@ What the real recordings show:
 | **Haiku vs Sonnet** — same prompt | Haiku 100% · **$0.018/run** | Sonnet 100% · $0.057/run | Tie on quality — **Haiku is ~3× cheaper and ~2× faster** |
 
 The honest finding: on this golden set, modern Claude models are **quality-saturated** — every case passes.
-So the harness's real job here is **cost/latency-driven model selection** (the numbers say ship Haiku), and
-the mock scenario shows what a genuine quality *regression* would look like when a model does differ. Both
-are worth keeping: a reproducible real measurement, plus an illustration of the workflow. Measurement, not vibes.
+So the harness's real job here is **cost/latency-driven model selection** (the numbers say ship Haiku); the
+mock scenario shows what a genuine quality *regression* would look like when models *do* differ. Measurement, not vibes.
 
 ---
 
