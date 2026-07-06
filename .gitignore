@@ -1,0 +1,13 @@
+node_modules/
+.env
+arena-results.json
+web/dashboard.html
+
+# Personal publishing runbook — kept locally, not part of the public repo
+UPLOAD-CHECKLIST.md
+
+# Editor / OS / tool artifacts
+.idea/
+.claude/
+.DS_Store
+.playwright-mcp/

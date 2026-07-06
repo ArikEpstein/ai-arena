@@ -1,0 +1,29 @@
+name: CI
+# Only runs on pushes to main (which only the repo owner can make) or a manual trigger —
+# it does NOT auto-run on pull requests, so nobody else's push/PR can start a run.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref so a rapid push sequence doesn't queue stale builds.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Evals (Arena, mock mode — gates on pass-rate)
+        run: npm run arena

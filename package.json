@@ -1,0 +1,38 @@
+{
+  "name": "ai-arena",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Production-shaped AI product engineering in TypeScript: agentic loop + tools (Zod) + two-stage RAG (embed→rerank) + an A/B Eval Arena with a dashboard.",
+  "keywords": ["typescript", "llm", "evals", "rag", "ai-agents", "anthropic", "prompt-engineering"],
+  "license": "MIT",
+  "author": "Arik Epstein",
+  "repository": { "type": "git", "url": "https://github.com/ArikEpstein/ai-arena.git" },
+  "homepage": "https://github.com/ArikEpstein/ai-arena#readme",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "agent": "tsx --eval \"import('./src/agent.js').then(async m=>console.log((await m.runAgent('Who is customer c-77?',{label:'demo',model:'claude-sonnet-4-6'})).answer)).catch(e=>{console.error(String(e));process.exit(1)})\"",
+    "rag": "tsx --eval \"import('./src/rag.js').then(async m=>{await m.initRag();console.log(await m.answerWithRag('Do you ship to Australia?'))}).catch(e=>{console.error(String(e));process.exit(1)})\"",
+    "arena": "LLM_MODE=mock tsx evals/arena.ts",
+    "arena:models": "LLM_MODE=mock SCENARIO=models tsx evals/arena.ts",
+    "arena:iter": "LLM_MODE=mock SCENARIO=iterations tsx evals/arena.ts",
+    "arena:live": "LLM_MODE=live tsx evals/arena.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "LLM_MODE=mock ANTHROPIC_API_KEY= VOYAGE_API_KEY= vitest run",
+    "ci": "npm run typecheck && npm run test && npm run arena"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "express": "^4.21.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

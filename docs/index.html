@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eval Arena · A/B</title>
+<style>
+  :root{
+    --bg:#0A0E16; --bg2:#0F1420; --card:#131A28; --line:#1E2739; --line2:#2A354B;
+    --ink:#EAEEF6; --mut:#8A94A8; --dim:#5D6678;
+    --a:#22D3EE; --a-soft:rgba(34,211,238,.12); --a-line:rgba(34,211,238,.35);
+    --b:#A78BFA; --b-soft:rgba(167,139,250,.12); --b-line:rgba(167,139,250,.35);
+    --ok:#34D399; --bad:#F87171; --warn:#FBBF24;
+    --mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"Inter","Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(900px 500px at 15% -10%, rgba(34,211,238,.10), transparent 60%),
+      radial-gradient(900px 500px at 85% -10%, rgba(167,139,250,.10), transparent 60%),
+      var(--bg);
+    color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:36px 20px 90px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--mut);margin:0}
+  h1{font-size:clamp(30px,5vw,46px);font-weight:800;margin:6px 0 8px;letter-spacing:-.02em;
+     background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;color:var(--mut);font-size:13.5px}
+  .badge{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+     padding:3px 10px;border-radius:999px;border:1px solid var(--line2)}
+  .badge.mock{color:var(--warn);border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
+  .badge.live{color:var(--ok);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+
+  .verdict{margin:22px 0 28px;padding:16px 18px;border:1px solid var(--line2);border-radius:14px;
+     background:linear-gradient(180deg,var(--bg2),transparent);font-size:15.5px}
+  .verdict b{color:var(--ink)}
+
+  /* VS cards */
+  .vs{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:stretch;margin-bottom:14px}
+  @media(max-width:640px){.vs{grid-template-columns:1fr;gap:12px}.vsmid{display:none}}
+  .runner{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card);position:relative;overflow:hidden}
+  .runner.A{border-color:var(--a-line)} .runner.B{border-color:var(--b-line)}
+  .runner::before{content:"";position:absolute;inset:0 0 auto 0;height:3px}
+  .runner.A::before{background:var(--a)} .runner.B::before{background:var(--b)}
+  .runner .name{font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:var(--mut);margin-bottom:2px}
+  .runner .model{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .win-tag{position:absolute;inset-inline-end:16px;top:16px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+     text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
+  .runner.A .win-tag{background:var(--a-soft);color:var(--a)} .runner.B .win-tag{background:var(--b-soft);color:var(--b)}
+
+  .ring{display:flex;align-items:center;gap:18px;margin:16px 0 10px}
+  .ring svg{flex:none}
+  .ring .big{font-size:34px;font-weight:800;font-family:var(--mono);line-height:1}
+  .ring .sub{color:var(--mut);font-size:12.5px;margin-top:2px}
+  .kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+  .kpi{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .kpi .l{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-family:var(--mono)}
+  .kpi .v{font-family:var(--mono);font-size:15px;font-weight:700;margin-top:2px}
+  .vsmid{display:grid;place-items:center}
+  .vsmid span{font-family:var(--mono);font-weight:800;color:var(--mut);font-size:14px;
+     border:1px solid var(--line2);border-radius:999px;width:44px;height:44px;display:grid;place-items:center;background:var(--bg2)}
+
+  h2{font-size:15px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);
+     margin:34px 0 12px;font-weight:600}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  .caserow{background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer}
+  .caserow td{padding:12px 14px;vertical-align:top;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .caserow td:first-child{border-inline-start:1px solid var(--line);border-radius:0 12px 12px 0}
+  .caserow td:last-child{border-inline-end:1px solid var(--line);border-radius:12px 0 0 12px}
+  .q{font-size:14.5px} .note{color:var(--dim);font-size:12px;margin-top:3px}
+  .cell{width:150px}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:700;
+     padding:3px 10px;border-radius:999px}
+  .chip.pass{background:rgba(52,211,153,.14);color:var(--ok)} .chip.fail{background:rgba(248,113,113,.14);color:var(--bad)}
+  .tools{font-family:var(--mono);font-size:11px;color:var(--mut);margin-top:6px;direction:ltr;text-align:right}
+  .detail{display:none;padding:0 14px 14px}
+  .detail.open{display:block}
+  .detail .box{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px}
+  .detail .who{font-family:var(--mono);font-size:11px;letter-spacing:.06em}
+  .detail .who.A{color:var(--a)} .detail .who.B{color:var(--b)}
+  .reasons{color:var(--bad);font-size:12.5px;margin-top:4px}
+  footer{color:var(--dim);font-size:12.5px;text-align:center;margin-top:40px;font-family:var(--mono)}
+  a{color:var(--a)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">A/B Evaluation Harness</p>
+  <h1>Eval Arena</h1>
+  <div class="meta" id="meta"></div>
+  <div class="verdict" id="verdict"></div>
+  <div class="vs" id="vs"></div>
+  <h2>Per-case comparison — click for details</h2>
+  <table id="cases"></table>
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const DATA = {"scenario":"prompts","scenarioLabel":"Prompt v1 vs v2 (same model)","dataset":"customer-support-golden-v1","mode":"mock","dataNote":"latency and cost are simulated (mock). pass/fail is real.","generatedAt":"2026-07-06T18:53:27.623Z","runners":[{"label":"Prompt v1","model":"claude-sonnet-4-6"},{"label":"Prompt v2","model":"claude-sonnet-4-6"}],"summary":[{"label":"Prompt v1","model":"claude-sonnet-4-6","passRate":63,"passed":5,"total":8,"avgLatencyMs":789,"p95LatencyMs":806,"totalCostUsd":0.013428},{"label":"Prompt v2","model":"claude-sonnet-4-6","passRate":100,"passed":8,"total":8,"avgLatencyMs":803,"p95LatencyMs":823,"totalCostUsd":0.0144}],"results":[{"id":"store-basic","question":"What is the monthly revenue of store 1002?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":789,"costUsd":0.001842},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":789,"costUsd":0.001842}]},{"id":"points-basic","question":"How many points are earned on a purchase of 350 shekels?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":782,"costUsd":0.001926},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":782,"costUsd":0.001926}]},{"id":"customer-basic","question":"Who is customer c-77 and how many points do they have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":780,"costUsd":0.0019140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":780,"costUsd":0.0019140000000000001}]},{"id":"customer-2","question":"How many points does customer c-88 have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":781,"costUsd":0.00183},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":781,"costUsd":0.00183}]},{"id":"refuse-offtopic","question":"What is the weather in Tel Aviv?","note":"","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"enough information\""],"answer":"Let me check that for you.","tools":[],"latencyMs":806,"costUsd":0.000996},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":822,"costUsd":0.000996}]},{"id":"no-hallucinate","question":"What is the revenue of store 9999?","note":"store does not exist — must not invent a number","perRunner":[{"pass":true,"reasons":[],"answer":"Let me check that for you.","tools":[],"latencyMs":806,"costUsd":0.001002},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":822,"costUsd":0.001002}]},{"id":"chain-two-tools","question":"How many points are earned on the monthly revenue of store 1003?","note":"requires chaining","perRunner":[{"pass":false,"reasons":["missing from chain 'calculate_points'","missing from answer '6100'"],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}","tools":["get_store_stats"],"latencyMs":784,"costUsd":0.001974},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":823,"costUsd":0.0029460000000000003}]},{"id":"reasoning","question":"Does customer c-99 have enough points to redeem 100 points?","note":"requires reasoning","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"not enough\""],"answer":"Based on the data: {\"customer_id\":\"c-99\",\"name\":\"Yael\",\"store_id\":\"1001\",\"points\":12,\"tier\":\"bronze\"}","tools":["lookup_customer"],"latencyMs":781,"costUsd":0.001944},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":821,"costUsd":0.001944}]}],"verdict":"A pure prompt win: same model, same latency, ~same cost ($0.013428 vs $0.0144) — only the prompt changed, and the pass-rate jumped from 63% to 100%. This is exactly what prompt versioning + evals are meant to catch: a quality gain without paying more."};
+
+function ring(pct, color){
+  const r=26,c=2*Math.PI*r,off=c*(1-pct/100);
+  return `<svg width="72" height="72" viewBox="0 0 72 72">
+    <circle cx="36" cy="36" r="${r}" fill="none" stroke="#1E2739" stroke-width="8"/>
+    <circle cx="36" cy="36" r="${r}" fill="none" stroke="${color}" stroke-width="8"
+      stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"
+      transform="rotate(-90 36 36)"/></svg>`;
+}
+
+function render(){
+  if(!DATA){document.getElementById('verdict').textContent='No data — run: npx tsx evals/arena.ts';return;}
+  const colors=['var(--a)','var(--b)'], keys=['A','B'];
+
+  document.getElementById('meta').innerHTML =
+    `<span class="badge ${DATA.mode}">${DATA.mode}</span>`+
+    `<span style="color:var(--ink);font-weight:700">${DATA.scenarioLabel||''}</span>`+
+    `<span>· dataset: <b style="color:var(--ink)">${DATA.dataset}</b></span>`+
+    `<span>· ${DATA.dataNote}</span>`;
+
+  document.getElementById('verdict').innerHTML = `<b>Verdict:</b> ${DATA.verdict}`;
+
+  const best = Math.max(...DATA.summary.map(s=>s.passRate));
+  const vs = DATA.summary.map((s,i)=>`
+    <div class="runner ${keys[i]}">
+      ${s.passRate===best?`<span class="win-tag">◤ quality leader</span>`:''}
+      <div class="name">${s.label}</div><div class="model">${s.model}</div>
+      <div class="ring">${ring(s.passRate,colors[i])}
+        <div><div class="big" style="color:${colors[i]}">${s.passRate}%</div>
+        <div class="sub">${s.passed}/${s.total} passed</div></div></div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">avg latency</div><div class="v">${s.avgLatencyMs}ms</div></div>
+        <div class="kpi"><div class="l">p95</div><div class="v">${s.p95LatencyMs}ms</div></div>
+        <div class="kpi"><div class="l">cost</div><div class="v">$${s.totalCostUsd}</div></div>
+      </div>
+    </div>`);
+  document.getElementById('vs').innerHTML = vs[0]+`<div class="vsmid"><span>VS</span></div>`+vs[1];
+
+  const rows = DATA.results.map((r,ri)=>{
+    const cell=(pr,k)=>`<td class="cell"><span class="chip ${pr.pass?'pass':'fail'}">${pr.pass?'PASS':'FAIL'}</span>
+      <div class="tools">${pr.tools.length?pr.tools.join(' → '):'— no tools —'}</div></td>`;
+    const detail=DATA.results[ri].perRunner.map((pr,i)=>`
+      <div class="box"><span class="who ${keys[i]}">${DATA.summary[i].label}</span>
+        <div style="margin-top:4px">${pr.answer||'—'}</div>
+        ${pr.reasons&&pr.reasons.length?`<div class="reasons">✗ ${pr.reasons.join(' · ')}</div>`:''}
+      </div>`).join('');
+    return `<tr class="caserow" onclick="this.nextElementSibling.querySelector('.detail').classList.toggle('open')">
+        <td><div class="q">${r.question}</div>${r.note?`<div class="note">${r.note}</div>`:''}</td>
+        ${cell(r.perRunner[0],'A')}${cell(r.perRunner[1],'B')}
+      </tr>
+      <tr><td colspan="3" style="padding:0;border:0"><div class="detail">${detail}</div></td></tr>`;
+  }).join('');
+  document.getElementById('cases').innerHTML =
+    `<thead><tr><td></td><td class="cell" style="color:var(--a);font-family:var(--mono);font-size:12px">${DATA.summary[0].label}</td>
+     <td class="cell" style="color:var(--b);font-family:var(--mono);font-size:12px">${DATA.summary[1].label}</td></tr></thead>`+rows;
+
+  document.getElementById('foot').textContent = 'Eval Arena · The idea: measurement is the craft. Two configs, a golden dataset, a decision in numbers.';
+}
+render();
+</script>
+</body>
+</html>
