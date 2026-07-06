@@ -1,5 +1,6 @@
 // src/server.ts — ties everything together behind HTTP. The same backend any frontend (React/Angular) connects to.
 import express from "express";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { stream } from "./llm.js";
@@ -9,7 +10,8 @@ import { MODELS } from "./config.js";
 
 const app = express();
 app.use(express.json());
-app.use(express.static(join(dirname(fileURLToPath(import.meta.url)), "..", "web")));
+const webDir = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
+app.use(express.static(webDir));
 
 // 1. Streamed chat (SSE) — the consumer in React/Angular is identical
 app.get("/api/chat", async (req, res) => {
@@ -52,4 +54,10 @@ app.post("/api/rag", async (req, res) => {
 
 const PORT = Number(process.env.PORT ?? 3000);
 await initRag();
-app.listen(PORT, () => console.log(`AI Arena → http://localhost:${PORT}  (dashboard: /dashboard.html)`));
+app.listen(PORT, () => {
+  // The dashboard is a generated artifact — only advertise it once it exists.
+  const dash = existsSync(join(webDir, "dashboard.html"))
+    ? "  (dashboard: /dashboard.html)"
+    : "  (run `npm run arena` to generate the dashboard)";
+  console.log(`AI Arena → http://localhost:${PORT}${dash}`);
+});

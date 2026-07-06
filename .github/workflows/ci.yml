@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: this job only reads the code, never writes to the repo.
+permissions:
+  contents: read
+
 # Cancel superseded runs on the same ref so a rapid push sequence doesn't queue stale builds.
 concurrency:
   group: ci-${{ github.ref }}

@@ -4,19 +4,17 @@
 
 **AI product engineering in TypeScript — an agentic loop, two-stage RAG, and an A/B eval harness that decides between LLM configs on the numbers.**
 
-_Solo project — I designed and built the entire stack (agent loop · two-stage RAG · eval harness · CI gate · dashboard) in strict TypeScript._
+![Eval Arena dashboard — prompt v1 (63%) vs v2 (100%)](docs/demo.gif)
+
+**▶ [Open the live dashboard](https://arikepstein.github.io/ai-arena/)** — interactive, click any row for the per-case diff. No install.
+
+_Solo project — I designed and built the entire stack end-to-end, in strict TypeScript._
 
 ![CI](https://github.com/ArikEpstein/ai-arena/actions/workflows/ci.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-35%20passing-34D399)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520.12-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-
-<br/>
-
-![Eval Arena dashboard — prompt v1 (63%) vs v2 (100%)](docs/dashboard.png)
-
-**▶ [Open the live dashboard](https://arikepstein.github.io/ai-arena/)** — interactive, click any row for the per-case diff. No install.
 
 </div>
 
@@ -165,5 +163,5 @@ everything is measured for real against the model.
 ---
 
 <div align="center">
-<sub>MIT licensed · built to show what AI product engineering actually looks like.</sub>
+<sub><a href="./LICENSE">MIT licensed</a> · built to show what AI product engineering actually looks like.</sub>
 </div>

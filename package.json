@@ -3,10 +3,21 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Production-shaped AI product engineering in TypeScript: agentic loop + tools (Zod) + two-stage RAG (embed→rerank) + an A/B Eval Arena with a dashboard.",
-  "keywords": ["typescript", "llm", "evals", "rag", "ai-agents", "anthropic", "prompt-engineering"],
+  "keywords": [
+    "typescript",
+    "llm",
+    "evals",
+    "rag",
+    "ai-agents",
+    "anthropic",
+    "prompt-engineering"
+  ],
   "license": "MIT",
   "author": "Arik Epstein",
-  "repository": { "type": "git", "url": "https://github.com/ArikEpstein/ai-arena.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArikEpstein/ai-arena.git"
+  },
   "homepage": "https://github.com/ArikEpstein/ai-arena#readme",
   "engines": {
     "node": ">=20.12"
@@ -33,6 +44,6 @@
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.10"
   }
 }

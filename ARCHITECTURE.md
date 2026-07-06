@@ -154,21 +154,21 @@ sequenceDiagram
     participant runTool
 
     Caller->>runAgent: runAgent(question, cfg)
-    Note over runAgent: messages=[user question]; usage={0,0,0}
+    Note over runAgent: messages seeded with the user question, usage zeroed
     loop up to MAX_STEPS
         runAgent->>complete: complete(cfg, system, messages, TOOLS)
-        complete-->>runAgent: { blocks, usage }
+        complete-->>runAgent: blocks + usage
         Note over runAgent: usage += u
         alt blocks contain tool_use
             runAgent->>runTool: runTool(name, input)
             runTool-->>runAgent: result object (never throws)
-            Note over runAgent: trace.push(step)<br/>messages += assistant(tool_use)<br/>messages += user(tool_result, JSON.stringify)
+            Note over runAgent: trace.push, then append the assistant tool_use and the user tool_result (JSON-stringified)
         else text block only
-            Note over runAgent: answer = text; break
+            Note over runAgent: answer = text, then break
         end
     end
-    runAgent->>runAgent: finalize() — latency (sim in mock / real in live)
-    runAgent-->>Caller: AgentResult{ answer, trace, usage, latencyMs }
+    runAgent->>runAgent: finalize — latency (simulated in mock, real in live)
+    runAgent-->>Caller: AgentResult (answer, trace, usage, latencyMs)
 ```
 
 ---

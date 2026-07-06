@@ -3,11 +3,29 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Eval Arena · A/B</title>
+<title>Eval Arena — A/B Evaluation Harness for LLM Prompts &amp; Models</title>
+<meta name="description" content="Eval Arena pits two LLM configs (prompt v1 vs v2, or model vs model) against a golden dataset and decides the winner in numbers — pass rate, latency, and cost." />
+<link rel="canonical" href="https://arikepstein.github.io/ai-arena/" />
+<meta name="author" content="Arik Epstein" />
+<meta name="theme-color" content="#0A0E16" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="AI Arena" />
+<meta property="og:title" content="Eval Arena — A/B Evaluation Harness for LLMs" />
+<meta property="og:description" content="Two configs, one golden dataset, a decision in numbers — pass rate, latency, and cost. Measurement as the craft." />
+<meta property="og:url" content="https://arikepstein.github.io/ai-arena/" />
+<meta property="og:image" content="https://arikepstein.github.io/ai-arena/og-preview.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Eval Arena dashboard comparing two LLM configs by pass rate, latency, and cost." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Eval Arena — A/B Evaluation Harness for LLMs" />
+<meta name="twitter:description" content="Two configs, one golden dataset, a decision in numbers." />
+<meta name="twitter:image" content="https://arikepstein.github.io/ai-arena/og-preview.png" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0E16'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2322D3EE' stroke-width='4' stroke-linecap='round' stroke-dasharray='42 57' transform='rotate(-90 16 16)'/%3E%3C/svg%3E" />
 <style>
   :root{
     --bg:#0A0E16; --bg2:#0F1420; --card:#131A28; --line:#1E2739; --line2:#2A354B;
-    --ink:#EAEEF6; --mut:#8A94A8; --dim:#5D6678;
+    --ink:#EAEEF6; --mut:#8A94A8; --dim:#828C9F;
     --a:#22D3EE; --a-soft:rgba(34,211,238,.12); --a-line:rgba(34,211,238,.35);
     --b:#A78BFA; --b-soft:rgba(167,139,250,.12); --b-line:rgba(167,139,250,.35);
     --ok:#34D399; --bad:#F87171; --warn:#FBBF24;
@@ -36,7 +54,12 @@
 
   /* VS cards */
   .vs{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:stretch;margin-bottom:14px}
-  @media(max-width:640px){.vs{grid-template-columns:1fr;gap:12px}.vsmid{display:none}}
+  .caserow:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+  @media(max-width:640px){
+    .vs{grid-template-columns:1fr;gap:12px}.vsmid{display:none}
+    .cell{width:auto}
+    .tools{text-align:left;white-space:normal;word-break:break-word}
+  }
   .runner{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card);position:relative;overflow:hidden}
   .runner.A{border-color:var(--a-line)} .runner.B{border-color:var(--b-line)}
   .runner::before{content:"";position:absolute;inset:0 0 auto 0;height:3px}
@@ -142,7 +165,7 @@ function render(){
         <div style="margin-top:4px">${pr.answer||'—'}</div>
         ${pr.reasons&&pr.reasons.length?`<div class="reasons">✗ ${pr.reasons.join(' · ')}</div>`:''}
       </div>`).join('');
-    return `<tr class="caserow" onclick="this.nextElementSibling.querySelector('.detail').classList.toggle('open')">
+    return `<tr class="caserow" tabindex="0" role="button" aria-expanded="false" onclick="toggleCase(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCase(this);}">
         <td><div class="q">${r.question}</div>${r.note?`<div class="note">${r.note}</div>`:''}</td>
         ${cell(r.perRunner[0],'A')}${cell(r.perRunner[1],'B')}
       </tr>
@@ -153,6 +176,11 @@ function render(){
      <td class="cell" style="color:var(--b);font-family:var(--mono);font-size:12px">${DATA.summary[1].label}</td></tr></thead>`+rows;
 
   document.getElementById('foot').textContent = 'Eval Arena · The idea: measurement is the craft. Two configs, a golden dataset, a decision in numbers.';
+}
+function toggleCase(tr){
+  const detail = tr.nextElementSibling.querySelector('.detail');
+  const open = detail.classList.toggle('open');
+  tr.setAttribute('aria-expanded', String(open));
 }
 render();
 </script>

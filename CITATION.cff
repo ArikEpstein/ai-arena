@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you reference this project, please cite it as below."
+title: "AI Arena"
+abstract: "A TypeScript reference for AI product engineering: an agentic tool-calling loop, two-stage RAG, and an Eval Arena with an LLM-as-judge, gated in CI."
+type: software
+authors:
+  - family-names: Epstein
+    given-names: Arik
+repository-code: "https://github.com/ArikEpstein/ai-arena"
+url: "https://arikepstein.github.io/ai-arena/"
+license: MIT

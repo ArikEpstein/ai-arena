@@ -56,34 +56,34 @@ es.addEventListener("error", e => es.close());
 sequenceDiagram
     participant Browser
     participant Express as server.ts
-    participant StreamFn as stream() (llm.ts)
+    participant StreamFn as stream in llm.ts
     participant Model as Anthropic / mock
 
-    Browser->>Express: GET /api/chat?q=<query>
+    Browser->>Express: GET /api/chat?q=...
     opt q is empty
-        Express-->>Browser: HTTP 400 { error }
+        Express-->>Browser: HTTP 400 error
     end
     Express->>Express: set SSE headers (socket now live)
-    Express->>StreamFn: for await (token of stream(q))
-    alt MODE === "live"
+    Express->>StreamFn: for await token of stream(q)
+    alt MODE is live
         StreamFn->>Model: client.messages.stream(...)
         loop text_delta events
             Model-->>StreamFn: delta.text
             StreamFn-->>Express: yield token
-            Express-->>Browser: event: text / data: {"t":"..."}
+            Express-->>Browser: frame — event text, data has the token
         end
-    else MODE === "mock"
+    else MODE is mock
         loop each word
-            StreamFn-->>Express: yield "word "
-            Express-->>Browser: event: text / data: {"t":"word "}
+            StreamFn-->>Express: yield the next word
+            Express-->>Browser: frame — event text, data has the word
         end
     end
     alt completed
-        Express-->>Browser: event: done / data: {}
+        Express-->>Browser: frame — event done
     else threw
-        Express-->>Browser: event: error / data: {"error":"..."}
+        Express-->>Browser: frame — event error, data has the message
     end
-    Note over Express: finally → res.end()
+    Note over Express: finally block always calls res.end()
 ```
 
 ---
@@ -121,31 +121,31 @@ full tool trace, cumulative usage, and latency.
 sequenceDiagram
     participant Browser
     participant Express as server.ts
-    participant Agent as runAgent (agent.ts)
-    participant Complete as complete() (llm.ts)
-    participant Tool as runTool() (tools.ts)
+    participant Agent as runAgent in agent.ts
+    participant Complete as complete in llm.ts
+    participant Tool as runTool in tools.ts
 
-    Browser->>Express: POST /api/agent { message }
+    Browser->>Express: POST /api/agent with a message
     Express->>Express: validate message (400 if empty/non-string)
     Express->>Agent: runAgent(message, cfg)
     loop up to MAX_STEPS
         Agent->>Complete: complete(cfg, system, messages, TOOLS)
-        Complete-->>Agent: { blocks, usage }
+        Complete-->>Agent: blocks + usage
         alt tool_use blocks
             Agent->>Tool: runTool(name, input)
-            Tool->>Tool: Zod .strict() validate → dispatch
-            Tool-->>Agent: result (or { error })
-            Note over Agent: trace.push; append tool_result (JSON.stringify)
+            Tool->>Tool: Zod strict validate, then dispatch
+            Tool-->>Agent: result object or an error object
+            Note over Agent: trace.push, then append the tool_result (JSON-stringified)
         else text block
-            Note over Agent: answer = text; exit
+            Note over Agent: answer = text, then exit
         end
     end
-    Agent->>Agent: finalize() — usage, latency
+    Agent->>Agent: finalize (usage, latency)
     Agent-->>Express: AgentResult
     alt threw
-        Express-->>Browser: 500 { error }
+        Express-->>Browser: 500 with an error
     else ok
-        Express-->>Browser: 200 { answer, trace, usage, latencyMs }
+        Express-->>Browser: 200 with answer, trace, usage, latencyMs
     end
 ```
 
@@ -191,28 +191,28 @@ retrieves broadly, reranks precisely, and grounds an answer.
 sequenceDiagram
     participant Browser
     participant Express as server.ts
-    participant RAG as answerWithRag (rag.ts)
+    participant RAG as answerWithRag in rag.ts
     participant VS as VectorStore
-    participant RR as rerank()
+    participant RR as rerank
     participant Model as Anthropic (live only)
 
-    Note over Express,VS: startup — initRag(): chunk + embed DOCS
-    Browser->>Express: POST /api/rag { question }
+    Note over Express,VS: startup — initRag chunks + embeds DOCS
+    Browser->>Express: POST /api/rag with a question
     Express->>Express: validate question (400 if bad)
     Express->>RAG: answerWithRag(question)
     RAG->>VS: search(question, 6) — embed query, cosine, top 6
-    VS-->>RAG: Hit[6]
+    VS-->>RAG: 6 hits
     RAG->>RR: rerank(question, hits, 3)
-    RR-->>RAG: Hit[3] (Voyage or identity fallback)
-    RAG->>RAG: assemble [source] context
-    alt MODE === "live"
-        RAG->>Model: messages.create(grounded, prompt-cache)
+    RR-->>RAG: 3 hits (Voyage or identity fallback)
+    RAG->>RAG: assemble the source-tagged context
+    alt MODE is live
+        RAG->>Model: messages.create (grounded, prompt-cache)
         Model-->>RAG: answer
-        RAG-->>Express: { answer, sources, simulated:false }
-    else MODE === "mock"
-        RAG-->>Express: { answer: top chunk, sources, simulated:true }
+        RAG-->>Express: answer, sources, simulated=false
+    else MODE is mock
+        RAG-->>Express: top chunk, sources, simulated=true
     end
-    Express-->>Browser: 200 { answer, sources, simulated }
+    Express-->>Browser: 200 with answer, sources, simulated
 ```
 
 ---
