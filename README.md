@@ -12,7 +12,7 @@ _Solo project — I designed and built the entire stack end-to-end, in strict Ty
 
 ![CI](https://github.com/ArikEpstein/ai-arena/actions/workflows/ci.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-35%20passing-34D399)
+![Tests](https://img.shields.io/badge/tests-38%20passing-34D399)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520.12-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -31,7 +31,7 @@ _Solo project — I designed and built the entire stack end-to-end, in strict Ty
 
 ```bash
 npm install
-npm run ci          # typecheck (strict) + 35 unit tests + evals gate — all green, no keys
+npm run ci          # typecheck (strict) + 38 unit tests + evals gate — all green, no keys
 npm run arena       # A/B: prompt v1 vs v2 → writes web/dashboard.html
 open web/dashboard.html
 ```
@@ -68,7 +68,7 @@ npm run arena:iter     # v1 → v2 → v3 — shows that an "improvement" with n
 npm run arena:live     # against real models (requires ANTHROPIC_API_KEY)
 
 npm run dev            # server: chat (SSE) + agent + rag → http://localhost:3000
-npm test               # 35 unit tests (vitest)
+npm test               # 38 unit tests (vitest)
 npm run typecheck      # tsc --noEmit, strict
 ```
 
@@ -110,6 +110,28 @@ flowchart LR
 
 ---
 
+## 🎯 Real results, recorded and replayed
+
+The dashboard above is a **mock illustration** of the prompt-versioning workflow — the capability gap is
+injected via a `MockProfile`, and the run is badged `mock`. But the harness also runs against **real
+recorded Claude responses**, replayed deterministically and offline, so **CI gates on genuine model
+behavior, not a stand-in.** `npm run arena:record` captures the live transcripts once (into
+`evals/fixtures/`); `npm run arena:replay` replays them with zero API calls, and CI runs it on every push.
+
+What the real recordings show:
+
+| Scenario (real, recorded) | Config A | Config B | Verdict |
+|---|---|---|---|
+| **Prompt v1 vs v2** — Sonnet | 100% · $0.056/run | 100% · $0.062/run | Tie — a capable model passes both prompts |
+| **Haiku vs Sonnet** — same prompt | Haiku 100% · **$0.018/run** | Sonnet 100% · $0.057/run | Tie on quality — **Haiku is ~3× cheaper and ~2× faster** |
+
+The honest finding: on this golden set, modern Claude models are **quality-saturated** — every case passes.
+So the harness's real job here is **cost/latency-driven model selection** (the numbers say ship Haiku), and
+the mock scenario shows what a genuine quality *regression* would look like when a model does differ. Both
+are worth keeping: a reproducible real measurement, plus an illustration of the workflow. Measurement, not vibes.
+
+---
+
 ## 🔌 Connecting React / Angular
 
 The backend is a thin API (SSE). The consumer is identical in both worlds:
@@ -141,11 +163,11 @@ each demo piece to its production replacement and the interface that stays stabl
 
 ```
 src/    env · config · llm (client+mock+stream) · tools (Zod) · agent (loop)
-        chunking · embeddings · vectorStore · rerank · rag · server
-evals/  dataset · graders · judge (LLM-as-judge) · arena (A/B + dashboard generator)
-test/   35 unit tests (config/tools/chunking/graders/judge/agent/rag/embeddings/stream)
+        chunking · embeddings · vectorStore · rerank · rag · server · transcripts (record/replay)
+evals/  dataset · graders · judge (LLM-as-judge) · arena (A/B + dashboard) · fixtures/ (recorded transcripts)
+test/   38 unit tests (config/tools/chunking/graders/judge/agent/rag/embeddings/stream/transcripts)
 web/    dashboard (modern, self-contained)
-.github/workflows/ci.yml   typecheck + tests + evals gate on every PR
+.github/workflows/ci.yml   typecheck + tests + mock gate + real-replay gate on every push
 ARCHITECTURE.md · DATAFLOW.md   design + per-request data flow
 ```
 
@@ -153,12 +175,18 @@ ARCHITECTURE.md · DATAFLOW.md   design + per-request data flow
 
 ## 📊 Data mode
 
-In `mock`: pass/fail and tool calls are **real and deterministic**; latency/cost are **simulated**
-(clearly labeled in the dashboard). The prompt-v1-vs-v2 capability gap in mock mode is **injected** via a
-per-runner `MockProfile` (`chains` / `reasons` / `refuses`) rather than derived from the prompt text — the
-mock is a deterministic stand-in for how a stronger prompt behaves, so the harness can be demonstrated
-end-to-end without keys. Run `npm run arena:live` for a genuinely prompt-driven delta. In `live`:
-everything is measured for real against the model.
+Three ways to run the Arena:
+
+- **`mock`** (default, CI) — pass/fail and tool calls are **real and deterministic**; latency/cost are
+  **simulated**. The prompt-v1-vs-v2 gap is **injected** via a per-runner `MockProfile` — a stand-in that
+  illustrates the workflow without keys. Badged `mock`.
+- **`replay`** (`npm run arena:replay`, also in CI) — replays **real recorded Claude responses** from
+  `evals/fixtures/` deterministically and offline: pass/fail and token **cost are real**, latency stays
+  simulated for a clean same-model comparison. Badged `replay`. This is the reproducible real measurement.
+- **`live`** (`npm run arena:live`, needs keys) — everything measured for real against the model, right now.
+
+`npm run arena:record` refreshes the fixtures from a live run. See
+[Real results](#-real-results-recorded-and-replayed) for what the recordings show.
 
 ---
 

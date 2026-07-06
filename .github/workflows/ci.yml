@@ -29,5 +29,7 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
-      - name: Evals (Arena, mock mode — gates on pass-rate)
+      - name: Evals (Arena, mock — illustrative, gates on pass-rate)
         run: npm run arena
+      - name: Evals (Arena, replay — real recorded model output, gates offline)
+        run: npm run arena:replay

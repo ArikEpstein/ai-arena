@@ -56,6 +56,7 @@ The code is organized into three subsystems over a shared configuration root (`s
 | Dataset | Golden `Case[]` with tool + answer expectations (+ optional `rubric`) | `evals/dataset.ts` |
 | Graders | Pure `grade(case, result)` → `{ pass, reasons }`; deterministic tool + value checks | `evals/graders.ts` |
 | Judge | LLM-as-judge for open-ended answers — deterministic in mock, haiku in live | `evals/judge.ts` |
+| Transcripts | Record/replay store — hash-keyed real model responses for deterministic offline replay | `src/transcripts.ts` + `evals/fixtures/` |
 | Arena | A/B runner, summary, verdict, dashboard, CI gate | `evals/arena.ts` |
 
 ### Module dependency graph
@@ -319,6 +320,25 @@ flowchart TD
     GATE -->|no| PASS["exit 0"]
 ```
 
+### Record / replay — gating on real model behavior
+
+The mock scenario's prompt delta is *injected* via `MockProfile`, so on its own it proves a workflow, not
+a measurement. `src/transcripts.ts` closes that gap with a VCR/cassette pattern: `complete()` and
+`judgeAnswer()` are wrapped so that
+
+- **`RECORD=1`** (`npm run arena:record`, live) captures every model completion and judge verdict, keyed
+  by a content hash of the request, into `evals/fixtures/transcripts.json`.
+- **`REPLAY=1`** (`npm run arena:replay`) serves those recordings back with **zero API calls**. Because the
+  agent loop and grader are deterministic given the model outputs, replaying the same hashed requests
+  reconstructs the exact recorded run — reproducibly and offline.
+
+CI runs the replay on every push, so the gate is on **real recorded model output**, not a stand-in. A
+missing fixture (e.g. the dataset changed without re-recording) fails loudly, which is the correct
+discipline. Pass/fail and token cost are real; latency stays simulated for a clean same-model comparison.
+The honest finding it surfaces: on this golden set both Haiku and Sonnet pass every case, so the real lever
+is **cost/latency** (Haiku matches Sonnet's quality at ~3× less cost) — the harness's job here is model
+selection, and the mock scenario illustrates what a genuine quality regression would look like.
+
 ---
 
 ## 8. Tech stack
@@ -390,7 +410,7 @@ committed template.
 
 ## 11. Testing
 
-35 unit tests (vitest), all deterministic and key-free (mock mode):
+38 unit tests (vitest), all deterministic and key-free (mock mode):
 
 | File | Covers |
 |---|---|

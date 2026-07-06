@@ -3,6 +3,7 @@
 // driven by a "behavior profile" — so that both model comparisons and prompt comparisons
 // produce a *real* difference in the numbers without an API key.
 import { MODE, MODELS, costUsd } from "./config.js";
+import { RECORD, REPLAY, fixtureKey, replayGet, recordPut } from "./transcripts.js";
 import type { Tool } from "./tools.js";
 
 export type Block =
@@ -113,6 +114,19 @@ function mockComplete(cfg: RunConfig, messages: Msg[]): Completion {
 }
 
 export async function complete(cfg: RunConfig, system: string, messages: Msg[], tools: Tool[]): Promise<Completion> {
+  // Record/replay real transcripts (keyed by the request content) so the Arena can gate on genuine
+  // model behavior offline. Keyed on model+system+messages — the tool list is constant across calls.
+  if (RECORD || REPLAY) {
+    const key = fixtureKey({ t: "complete", model: cfg.model, system, messages });
+    if (REPLAY) {
+      const hit = replayGet<Completion>("completions", key);
+      if (!hit) throw new Error(`No recorded completion for this request (${key}). Re-record with: npm run arena:record`);
+      return hit;
+    }
+    const res = await liveComplete(cfg, system, messages, tools); // RECORD implies live
+    recordPut("completions", key, res);
+    return res;
+  }
   if (MODE === "live") return liveComplete(cfg, system, messages, tools);
   return mockComplete(cfg, messages);
 }

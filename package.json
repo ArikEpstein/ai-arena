@@ -30,9 +30,11 @@
     "arena:models": "LLM_MODE=mock SCENARIO=models tsx evals/arena.ts",
     "arena:iter": "LLM_MODE=mock SCENARIO=iterations tsx evals/arena.ts",
     "arena:live": "LLM_MODE=live tsx evals/arena.ts",
+    "arena:record": "LLM_MODE=live RECORD=1 tsx evals/arena.ts",
+    "arena:replay": "LLM_MODE=mock REPLAY=1 tsx evals/arena.ts",
     "typecheck": "tsc --noEmit",
     "test": "LLM_MODE=mock ANTHROPIC_API_KEY= VOYAGE_API_KEY= vitest run",
-    "ci": "npm run typecheck && npm run test && npm run arena"
+    "ci": "npm run typecheck && npm run test && npm run arena && npm run arena:replay"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

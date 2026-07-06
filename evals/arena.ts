@@ -16,9 +16,10 @@ import { MODE, MODELS } from "../src/config.js";
 import { DATASET } from "./dataset.js";
 import { grade } from "./graders.js";
 import { judgeAnswer } from "./judge.js";
+import { RECORD, REPLAY, saveFixtures } from "../src/transcripts.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const SCENARIO = (process.env.SCENARIO ?? "prompts") as "prompts" | "models" | "iterations";
+const SCENARIO = (process.env.SCENARIO ?? "prompts") as "prompts" | "prompts-haiku" | "models" | "iterations";
 
 // ── Prompt v1: minimal. v2: adds explicit instructions (chaining/reasoning/refusal). ──
 const PROMPT_V1 = `You are a support assistant for a loyalty platform. Use the tools to answer.`;
@@ -48,6 +49,16 @@ const SCENARIOS: Record<string, { label: string; runners: RunConfig[]; sameModel
       { label: "v1", model: MODELS.work, systemPrompt: PROMPT_V1, mock: { chains: false, reasons: false, refuses: false } },
       { label: "v2", model: MODELS.work, systemPrompt: PROMPT_V2, mock: { chains: true, reasons: true, refuses: true } },
       { label: "v3", model: MODELS.work, systemPrompt: PROMPT_V3, mock: { chains: true, reasons: true, refuses: true } },
+    ],
+  },
+  // Same idea as `prompts`, on a weaker model (Haiku) where the prompt actually changes behavior —
+  // a capable model (Sonnet) passes both prompts, so the real prompt win shows up here.
+  "prompts-haiku": {
+    label: "Prompt v1 vs v2 (Haiku)",
+    sameModel: true,
+    runners: [
+      { label: "Prompt v1 · haiku", model: MODELS.fast, systemPrompt: PROMPT_V1, mock: { chains: false, reasons: false, refuses: false } },
+      { label: "Prompt v2 · haiku", model: MODELS.fast, systemPrompt: PROMPT_V2, mock: { chains: true, reasons: true, refuses: true } },
     ],
   },
   // Different model → tradeoff of quality vs cost/latency
@@ -104,16 +115,26 @@ async function main() {
     };
   });
 
+  // Replay runs serve real recorded model output, so label them "replay" (not "mock") and be explicit
+  // that pass/fail and cost are real while latency stays simulated for a clean same-model comparison.
+  const displayMode = REPLAY ? "replay" : MODE;
+  const dataNote = REPLAY
+    ? "answers, tool calls, and token cost are real recorded model output; latency is simulated."
+    : MODE === "mock"
+      ? "latency and cost are simulated (mock). pass/fail is real."
+      : "live: everything is measured for real.";
   const payloadBase = {
     scenario: SCENARIO, scenarioLabel: sc.label,
-    dataset: "customer-support-golden-v1", mode: MODE,
-    dataNote: MODE === "mock" ? "latency and cost are simulated (mock). pass/fail is real." : "live: everything is measured for real.",
+    dataset: "customer-support-golden-v1", mode: displayMode,
+    dataNote,
     generatedAt: new Date().toISOString(),
     runners: RUNNERS.map((r) => ({ label: r.label, model: r.model })),
     summary, results,
   };
 
-  console.log(`\n⚔️  EVAL ARENA  (${MODE}) — ${sc.label}`);
+  if (RECORD) { saveFixtures(); console.log("\n(recorded live transcripts → evals/fixtures/transcripts.json)"); }
+
+  console.log(`\n⚔️  EVAL ARENA  (${displayMode}) — ${sc.label}`);
   console.log("─".repeat(64));
   for (const s of summary)
     console.log(`${s.label.padEnd(16)} pass ${String(s.passRate).padStart(3)}%  avg ${s.avgLatencyMs}ms  cost $${s.totalCostUsd}`);
