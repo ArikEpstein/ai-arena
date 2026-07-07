@@ -17,13 +17,13 @@ describe("graders", () => {
       { answer: "I don't have enough information", trace: [{ tool: "get_store_stats" }] });
     expect(g.pass).toBe(false);
   });
-  it("no-hallucinate: passes when only the queried id 9999 appears", () => {
-    const g = grade({ id: "no-hallucinate", question: "q" },
+  it("forbidStrayNumbers: passes when only the queried id 9999 appears", () => {
+    const g = grade({ id: "no-hallucinate", question: "What is the revenue of store 9999?", forbidStrayNumbers: true },
       { answer: "I don't have data for store 9999.", trace: [] });
     expect(g.pass).toBe(true);
   });
-  it("no-hallucinate: flags an invented number", () => {
-    const g = grade({ id: "no-hallucinate", question: "q" },
+  it("forbidStrayNumbers: flags an invented number", () => {
+    const g = grade({ id: "no-hallucinate", question: "What is the revenue of store 9999?", forbidStrayNumbers: true },
       { answer: "Store 9999 earned 88000 last month.", trace: [] });
     expect(g.pass).toBe(false); // 88000 is not the queried id — likely invented
   });

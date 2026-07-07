@@ -113,12 +113,12 @@ function p95(xs: number[]): number {
 export async function runScenario(key: string): Promise<ScenarioPayload> {
   const sc = SCENARIOS[key];
   if (!sc) throw new Error(`Unknown scenario "${key}" (expected one of ${Object.keys(SCENARIOS).join(", ")})`);
-  const RUNNERS = sc.runners;
+  const runners = sc.runners;
 
   const results: CaseResult[] = [];
   for (const c of DATASET) {
     const perRunner: CaseCell[] = [];
-    for (const cfg of RUNNERS) {
+    for (const cfg of runners) {
       const r = await runAgent(c.question, cfg);
       const g = grade(c, r);
       let pass = g.pass;
@@ -133,7 +133,7 @@ export async function runScenario(key: string): Promise<ScenarioPayload> {
     results.push({ id: c.id, question: c.question, note: c.note ?? "", perRunner });
   }
 
-  const summary: RunnerSummary[] = RUNNERS.map((cfg, i) => {
+  const summary: RunnerSummary[] = runners.map((cfg, i) => {
     const cells = results.map((r) => r.perRunner[i]);
     const passed = cells.filter((c) => c.pass).length;
     const lat = cells.map((c) => c.latencyMs);
@@ -161,7 +161,7 @@ export async function runScenario(key: string): Promise<ScenarioPayload> {
     frame: sc.frame,
     sameModel: sc.sameModel,
     dataNote,
-    runners: RUNNERS.map((r) => ({ label: r.label, model: r.model, systemPrompt: r.systemPrompt ?? DEFAULT_SYSTEM })),
+    runners: runners.map((r) => ({ label: r.label, model: r.model, systemPrompt: r.systemPrompt ?? DEFAULT_SYSTEM })),
     summary,
     results,
     verdict: decideVerdict(summary, sc.sameModel),

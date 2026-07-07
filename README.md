@@ -2,7 +2,7 @@
 
 # ⚔️ AI Arena
 
-**AI product engineering in TypeScript on the Claude API: an agentic tool-use loop with Zod-validated structured outputs, two-stage RAG, and an A/B eval harness that decides between LLM configs on the numbers.**
+**AI product engineering in TypeScript on the Claude API: an agentic tool-use (function calling) loop with Zod-validated tool calls, two-stage RAG, and an A/B eval harness that decides between LLM configs on the numbers.**
 
 ![Eval Arena dashboard — a scenario selector switching between prompt v1 vs v2 (50% → 100%), Haiku vs Sonnet vs Opus, and a v1 → v2 → v3 iteration](docs/demo.gif)
 
@@ -50,8 +50,8 @@ tie at 100% — see [Real results](#-real-results-recorded-and-replayed).)*
 |---|---|---|
 | **Eval Arena** | `evals/arena.ts` | Runs a golden dataset against each scenario's configs, measures pass-rate / latency / cost, writes a selectable dashboard, and **gates CI** (`exit 1` below `ARENA_GATE`). |
 | **Agentic loop** | `src/agent.ts` · `src/llm.ts` | Bounded tool-use (function calling) loop on the Claude API with a uniform `complete()` contract, full trace, and cost accounting. |
-| **Structured outputs (Zod tools)** | `src/tools.ts` | Model output is untrusted input — `.strict()` schemas validate every tool call before execution. |
-| **Two-stage RAG** | `src/rag.ts` | `chunk → embed → retrieve (recall) → rerank (precision) → ground`, with citations and prompt caching. |
+| **Zod-validated tool calls** | `src/tools.ts` | Model output is untrusted input — `.strict()` schemas validate every tool call before execution. |
+| **Two-stage RAG** | `src/rag.ts` | `chunk → embed → retrieve (recall) → rerank (precision) → ground`, with citations and a cache breakpoint on the instruction prefix. |
 | **Mock/live parity** | `src/config.ts` · `src/llm.ts` | The same code runs deterministically with no keys, or against Anthropic + Voyage in live mode. |
 | **Thin HTTP API** | `src/server.ts` | `GET /api/chat` (SSE) · `POST /api/agent` · `POST /api/rag` — one backend, any frontend. |
 
@@ -120,14 +120,17 @@ injected via a `MockProfile`, and the run is badged `mock`. But the harness also
 recorded Claude responses**, replayed deterministically and offline, so **CI gates on genuine recorded
 model behavior, not a hand-authored stand-in.** `npm run arena:record` captures the live transcripts once (into
 `evals/fixtures/`); `npm run arena:replay` replays the **prompt v1 vs v2** transcripts with zero API calls, and
-CI runs it on every push. (The Haiku-vs-Sonnet row below is a recorded live measurement from the same fixtures.)
+CI runs it on every push. (The Haiku-vs-Sonnet row below was measured live at record time from the same
+recording session; only the prompts scenario is replay-gated in CI.)
 
 What the real recordings show:
 
 | Scenario (real, recorded) | Config A | Config B | Verdict |
 |---|---|---|---|
-| **Prompt v1 vs v2** — Sonnet | 100% · $0.056/run | 100% · $0.062/run | Tie — a capable model passes both prompts |
-| **Haiku vs Sonnet** — same prompt | Haiku 100% · **$0.018/run** | Sonnet 100% · $0.057/run | Tie on quality — **Haiku is ~3× cheaper** on real token cost |
+| **Prompt v1 vs v2** — Sonnet | 100% · $0.056/suite | 100% · $0.062/suite | Tie — a capable model passes both prompts |
+| **Haiku vs Sonnet** — same prompt | Haiku 100% · **$0.018/suite** | Sonnet 100% · $0.057/suite | Tie on quality — **Haiku is ~3× cheaper** on real token cost |
+
+<sub>Cost figures are the total for one 8-case suite run.</sub>
 
 The honest finding: on this golden set, modern Claude models are **quality-saturated** — every case passes.
 So the harness's real job here is **cost-driven model selection** (the numbers say ship Haiku); the

@@ -1,6 +1,5 @@
-// src/vectorStore.ts — a minimal in-memory vector DB (cosine).
-// This is what pgvector/Pinecone do. Moving to pgvector = swapping add/search
-// for SQL queries with the <=> operator; the rest of the pipeline is unchanged — hence the clean interface.
+// src/vectorStore.ts — a minimal in-memory vector store (cosine similarity).
+// The add/search interface maps directly onto pgvector's <=> operator for a production swap.
 import { embed } from "./embeddings.js";
 import type { Chunk } from "./chunking.js";
 

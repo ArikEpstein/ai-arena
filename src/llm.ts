@@ -2,6 +2,7 @@
 // live: real Anthropic (with the config's systemPrompt). mock: a deterministic policy
 // driven by a "behavior profile" — so that both model comparisons and prompt comparisons
 // produce a *real* difference in the numbers without an API key.
+import type AnthropicSDK from "@anthropic-ai/sdk";
 import { MODE, MODELS, costUsd } from "./config.js";
 import { RECORD, REPLAY, fixtureKey, replayGet, recordPut } from "./transcripts.js";
 import type { Tool } from "./tools.js";
@@ -29,7 +30,7 @@ export interface RunConfig {
 
 // ---------- LIVE ----------
 // Lazily import the SDK so the mock path never needs the dependency (or an API key).
-async function anthropicClient() {
+export async function anthropicClient() {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   return new Anthropic();
 }
@@ -40,12 +41,19 @@ async function liveComplete(cfg: RunConfig, system: string, messages: Msg[], too
     model: cfg.model,
     max_tokens: 1024,
     system,
-    tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema as any })),
-    messages: messages as any,
+    tools: tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.input_schema as AnthropicSDK.Tool.InputSchema,
+    })),
+    messages: messages as AnthropicSDK.MessageParam[],
   });
-  const blocks: Block[] = res.content.map((b: any) =>
-    b.type === "tool_use" ? { type: "tool_use", id: b.id, name: b.name, input: b.input } : { type: "text", text: b.text }
-  );
+  const blocks: Block[] = [];
+  for (const b of res.content) {
+    if (b.type === "tool_use") blocks.push({ type: "tool_use", id: b.id, name: b.name, input: b.input });
+    else if (b.type === "text") blocks.push({ type: "text", text: b.text });
+    // Other block types (e.g. thinking) are never requested here; skip rather than coerce.
+  }
   const inTok = res.usage.input_tokens, outTok = res.usage.output_tokens;
   return { blocks, usage: { inTok, outTok, costUsd: costUsd(cfg.model, inTok, outTok) } };
 }

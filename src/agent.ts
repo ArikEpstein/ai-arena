@@ -10,7 +10,7 @@ Never invent numbers. If information is missing, say that you don't know.`;
 
 const MAX_STEPS = 5;
 
-export interface TraceStep { tool: string; args: any; result: unknown; }
+export interface TraceStep { tool: string; args: unknown; result: unknown; }
 export interface AgentResult {
   answer: string; trace: TraceStep[]; usage: Usage;
   latencyMs: number; simulatedLatency: boolean;
