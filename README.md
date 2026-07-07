@@ -2,13 +2,11 @@
 
 # ⚔️ AI Arena
 
-**AI product engineering in TypeScript — an agentic loop, two-stage RAG, and an A/B eval harness that decides between LLM configs on the numbers.**
+**AI product engineering in TypeScript on the Claude API: an agentic tool-use loop with Zod-validated structured outputs, two-stage RAG, and an A/B eval harness that decides between LLM configs on the numbers.**
 
 ![Eval Arena dashboard — a scenario selector switching between prompt v1 vs v2 (50% → 100%), Haiku vs Sonnet vs Opus, and a v1 → v2 → v3 iteration](docs/demo.gif)
 
 **▶ [Open the live dashboard](https://arikepstein.github.io/ai-arena/)** — three comparisons in one page (prompt A/B · model cost/latency · iteration), switch with the selector, click any row for the per-case diff. No install.
-
-_Solo project — I designed and built the entire stack end-to-end, in strict TypeScript._
 
 ![CI](https://github.com/ArikEpstein/ai-arena/actions/workflows/ci.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
@@ -51,8 +49,8 @@ tie at 100% — see [Real results](#-real-results-recorded-and-replayed).)*
 | Capability | Where | One-liner |
 |---|---|---|
 | **Eval Arena** | `evals/arena.ts` | Runs a golden dataset against each scenario's configs, measures pass-rate / latency / cost, writes a selectable dashboard, and **gates CI** (`exit 1` below `ARENA_GATE`). |
-| **Agentic loop** | `src/agent.ts` · `src/llm.ts` | Bounded tool-calling loop with a uniform `complete()` contract, full trace, and cost accounting. |
-| **Zod-validated tools** | `src/tools.ts` | Model output is untrusted input — `.strict()` schemas validate every tool call before execution. |
+| **Agentic loop** | `src/agent.ts` · `src/llm.ts` | Bounded tool-use (function calling) loop on the Claude API with a uniform `complete()` contract, full trace, and cost accounting. |
+| **Structured outputs (Zod tools)** | `src/tools.ts` | Model output is untrusted input — `.strict()` schemas validate every tool call before execution. |
 | **Two-stage RAG** | `src/rag.ts` | `chunk → embed → retrieve (recall) → rerank (precision) → ground`, with citations and prompt caching. |
 | **Mock/live parity** | `src/config.ts` · `src/llm.ts` | The same code runs deterministically with no keys, or against Anthropic + Voyage in live mode. |
 | **Thin HTTP API** | `src/server.ts` | `GET /api/chat` (SSE) · `POST /api/agent` · `POST /api/rag` — one backend, any frontend. |
