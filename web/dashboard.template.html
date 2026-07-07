@@ -66,10 +66,11 @@
   .vs{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:stretch;margin-bottom:14px}
   .caserow:focus-visible{outline:2px solid var(--a);outline-offset:2px}
   @media(max-width:640px){
-    .vs{grid-template-columns:1fr !important;gap:12px}.vsmid{display:none}
+    .wrap{overflow-x:hidden}
+    .vs{grid-template-columns:1fr !important;gap:12px}.vsmid{display:none !important}
     .cell{width:auto}
     .tools{text-align:left;white-space:normal;word-break:break-word}
-    #cases{min-width:480px}
+    .verdict{overflow-wrap:anywhere}
   }
   .runner{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card);position:relative;overflow:hidden}
   .runner.A{border-color:var(--a-line)} .runner.B{border-color:var(--b-line)} .runner.C{border-color:var(--c-line)}
