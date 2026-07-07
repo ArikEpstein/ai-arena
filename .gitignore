@@ -11,3 +11,6 @@ UPLOAD-CHECKLIST.md
 .claude/
 .DS_Store
 .playwright-mcp/
+
+# Local planning doc — never commit
+SPRINT.md

@@ -4,15 +4,15 @@
 
 **AI product engineering in TypeScript — an agentic loop, two-stage RAG, and an A/B eval harness that decides between LLM configs on the numbers.**
 
-![Eval Arena dashboard — prompt v1 (63%) vs v2 (100%)](docs/demo.gif)
+![Eval Arena dashboard — a scenario selector switching between prompt v1 vs v2 (50% → 100%), Haiku vs Sonnet vs Opus, and a v1 → v2 → v3 iteration](docs/demo.gif)
 
-**▶ [Open the live dashboard](https://arikepstein.github.io/ai-arena/)** — interactive, click any row for the per-case diff. No install.
+**▶ [Open the live dashboard](https://arikepstein.github.io/ai-arena/)** — three comparisons in one page (prompt A/B · model cost/latency · iteration), switch with the selector, click any row for the per-case diff. No install.
 
 _Solo project — I designed and built the entire stack end-to-end, in strict TypeScript._
 
 ![CI](https://github.com/ArikEpstein/ai-arena/actions/workflows/ci.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-38%20passing-34D399)
+![Tests](https://img.shields.io/badge/tests-47%20passing-34D399)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520.12-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -31,16 +31,18 @@ _Solo project — I designed and built the entire stack end-to-end, in strict Ty
 
 ```bash
 npm install
-npm run ci          # typecheck (strict) + 38 unit tests + evals gate — all green, no keys
-npm run arena       # A/B: prompt v1 vs v2 → writes web/dashboard.html
+npm run ci          # typecheck (strict) + 47 unit tests + evals gate — all green, no keys
+npm run arena       # runs all three comparisons → writes web/dashboard.html
 open web/dashboard.html   # Linux: xdg-open web/dashboard.html
 ```
 
-What you'll see: the **dashboard** shows prompt **v2 beating v1 (63% → 100%)** on the same model, latency,
-and ~cost — a clean prompt win, with a per-case breakdown of exactly what got fixed. That's the day-to-day
-AI-engineering loop: change a prompt, measure, prove it with a number. *(This default scenario is an
-illustrative **mock**; the harness also gates CI on **real recorded model runs** — see
-[Real results](#-real-results-recorded-and-replayed).)*
+What you'll see: one **dashboard** with a **scenario selector** — flip between the three comparisons the
+harness runs: **prompt v1 vs v2** (same model, 50% → 100%), **Haiku vs Sonnet vs Opus** (quality ties at
+100% → ship Haiku, the cheapest and fastest), and a **v1 → v2 → v3 iteration**. Each carries a per-case breakdown of
+exactly what differs. That's the day-to-day AI-engineering loop: change a config, measure, prove it with a
+number. *(These default scenarios are an illustrative **mock** — the v1→v2 quality gap is injected to show
+the workflow; the harness also gates CI on **real recorded model runs**, where both prompts and both models
+tie at 100% — see [Real results](#-real-results-recorded-and-replayed).)*
 
 ---
 
@@ -48,7 +50,7 @@ illustrative **mock**; the harness also gates CI on **real recorded model runs**
 
 | Capability | Where | One-liner |
 |---|---|---|
-| **Eval Arena** | `evals/arena.ts` | Runs a golden dataset against two configs, measures pass-rate / latency / cost, writes a dashboard, and **gates CI** (`exit 1` below `ARENA_GATE`). |
+| **Eval Arena** | `evals/arena.ts` | Runs a golden dataset against each scenario's configs, measures pass-rate / latency / cost, writes a selectable dashboard, and **gates CI** (`exit 1` below `ARENA_GATE`). |
 | **Agentic loop** | `src/agent.ts` · `src/llm.ts` | Bounded tool-calling loop with a uniform `complete()` contract, full trace, and cost accounting. |
 | **Zod-validated tools** | `src/tools.ts` | Model output is untrusted input — `.strict()` schemas validate every tool call before execution. |
 | **Two-stage RAG** | `src/rag.ts` | `chunk → embed → retrieve (recall) → rerank (precision) → ground`, with citations and prompt caching. |
@@ -64,13 +66,14 @@ diagrams).
 ## ⚡ Running it
 
 ```bash
-npm run arena          # prompt v1 vs v2 (same model) — a quality win at no extra cost
-npm run arena:models   # haiku vs sonnet — the quality/cost/latency tradeoff
-npm run arena:iter     # v1 → v2 → v3 — shows that an "improvement" with no eval for it doesn't count
+npm run arena          # all three comparisons → one dashboard with a scenario selector
+npm run arena:models   # focus: haiku vs sonnet vs opus — quality ties, so cost/latency decides (ship Haiku)
+npm run arena:iter     # focus: v1 → v2 → v3 — an "improvement" with no eval measuring it doesn't count
 npm run arena:live     # against real models (requires ANTHROPIC_API_KEY)
+npm run docs:publish   # copy the generated dashboard → docs/ (the live GitHub Pages site)
 
 npm run dev            # server: chat (SSE) + agent + rag → http://localhost:3000
-npm test               # 38 unit tests (vitest)
+npm test               # 47 unit tests (vitest)
 npm run typecheck      # tsc --noEmit, strict
 ```
 
@@ -83,7 +86,7 @@ and free even with keys present. Exactly the same code path otherwise.
 
 ## ⭐ The two central ideas
 
-**1. Eval Arena.** Runs a golden dataset against two configurations and measures, for each, pass-rate,
+**1. Eval Arena.** Runs a golden dataset against two or three configurations and measures, for each, pass-rate,
 latency (avg/p95), cost, and a per-case diff. A **real CI gate**: if the best pass-rate drops below the
 threshold (`ARENA_GATE`, default 80%), the process exits 1 and breaks the build. Grading is **hybrid**:
 deterministic checks for structured expectations (tool trace, exact values) and an **LLM-as-judge**
@@ -118,18 +121,24 @@ The dashboard above is a **mock illustration** of the prompt-versioning workflow
 injected via a `MockProfile`, and the run is badged `mock`. But the harness also runs against **real
 recorded Claude responses**, replayed deterministically and offline, so **CI gates on genuine recorded
 model behavior, not a hand-authored stand-in.** `npm run arena:record` captures the live transcripts once (into
-`evals/fixtures/`); `npm run arena:replay` replays them with zero API calls, and CI runs it on every push.
+`evals/fixtures/`); `npm run arena:replay` replays the **prompt v1 vs v2** transcripts with zero API calls, and
+CI runs it on every push. (The Haiku-vs-Sonnet row below is a recorded live measurement from the same fixtures.)
 
 What the real recordings show:
 
 | Scenario (real, recorded) | Config A | Config B | Verdict |
 |---|---|---|---|
 | **Prompt v1 vs v2** — Sonnet | 100% · $0.056/run | 100% · $0.062/run | Tie — a capable model passes both prompts |
-| **Haiku vs Sonnet** — same prompt | Haiku 100% · **$0.018/run** | Sonnet 100% · $0.057/run | Tie on quality — **Haiku is ~3× cheaper and ~2× faster** |
+| **Haiku vs Sonnet** — same prompt | Haiku 100% · **$0.018/run** | Sonnet 100% · $0.057/run | Tie on quality — **Haiku is ~3× cheaper** on real token cost |
 
 The honest finding: on this golden set, modern Claude models are **quality-saturated** — every case passes.
-So the harness's real job here is **cost/latency-driven model selection** (the numbers say ship Haiku); the
+So the harness's real job here is **cost-driven model selection** (the numbers say ship Haiku); the
 mock scenario shows what a genuine quality *regression* would look like when models *do* differ. Measurement, not vibes.
+
+> The live dashboard's **model** tab extends this to **Haiku vs Sonnet vs Opus** for the full cost ladder (Opus lists
+> at ~5× Haiku). Opus there is an *illustrative mock*, not recorded; the recorded table above covers the two models
+> you'd realistically choose between for this workload. In that mock tab, both latency **and cost** are simulated (real
+> list prices × mock token counts, badged on the page) — only the recorded table's cost is measured against real tokens.
 
 ---
 
@@ -166,7 +175,7 @@ each demo piece to its production replacement and the interface that stays stabl
 src/    env · config · llm (client+mock+stream) · tools (Zod) · agent (loop)
         chunking · embeddings · vectorStore · rerank · rag · server · transcripts (record/replay)
 evals/  dataset · graders · judge (LLM-as-judge) · arena (A/B + dashboard) · fixtures/ (recorded transcripts)
-test/   38 unit tests (config/tools/chunking/graders/judge/agent/rag/embeddings/stream/transcripts)
+test/   47 unit tests (config/tools/chunking/graders/judge/agent/rag/rerank/embeddings/stream/transcripts/arena/llm-live)
 web/    dashboard (modern, self-contained)
 .github/workflows/ci.yml   typecheck + tests + mock gate + real-replay gate on every push
 ARCHITECTURE.md · DATAFLOW.md   design + per-request data flow
@@ -179,8 +188,9 @@ ARCHITECTURE.md · DATAFLOW.md   design + per-request data flow
 Three ways to run the Arena:
 
 - **`mock`** (default, CI) — pass/fail and tool calls are **real and deterministic**; latency/cost are
-  **simulated**. The prompt-v1-vs-v2 gap is **injected** via a per-runner `MockProfile` — a stand-in that
-  illustrates the workflow without keys. Badged `mock`.
+  **simulated**. The prompt-v1-vs-v2 gap is **injected** via a per-runner `MockProfile` (the model
+  comparison gives both models the *same* profile, so its 100% tie is genuine, not injected) — a stand-in
+  that illustrates the workflow without keys. Badged `mock`.
 - **`replay`** (`npm run arena:replay`, also in CI) — replays **real recorded Claude responses** from
   `evals/fixtures/` deterministically and offline: pass/fail and token **cost are real**, latency stays
   simulated for a clean same-model comparison. Badged `replay`. This is the reproducible real measurement.

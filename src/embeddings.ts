@@ -5,7 +5,11 @@
 import { EMBED_MODEL } from "./config.js";
 
 const DIM = 256;
-function hashToken(t: string) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h % DIM; }
+function hashToken(t: string): number {
+  let h = 0;
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return h % DIM;
+}
 function toyEmbed(text: string): number[] {
   const v = new Array(DIM).fill(0);
   for (const t of text.toLowerCase().match(/[a-z0-9\u0590-\u05FF]+/g) || []) v[hashToken(t)] += 1;
@@ -23,8 +27,8 @@ async function voyageEmbed(texts: string[], inputType: InputType): Promise<numbe
     signal: AbortSignal.timeout(15_000), // don't let a hung upstream stall the request
   });
   if (!res.ok) throw new Error(`Voyage ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return data.data.map((d: any) => d.embedding);
+  const data = (await res.json()) as { data: { embedding: number[] }[] };
+  return data.data.map((d) => d.embedding);
 }
 
 export async function embed(texts: string[], inputType: InputType): Promise<number[][]> {

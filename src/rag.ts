@@ -1,4 +1,5 @@
 // src/rag.ts — full two-stage RAG: chunk -> embed -> retrieve -> rerank -> ground.
+import type AnthropicSDK from "@anthropic-ai/sdk";
 import { chunk } from "./chunking.js";
 import { VectorStore } from "./vectorStore.js";
 import { rerank } from "./rerank.js";
@@ -50,10 +51,10 @@ export async function answerWithRag(question: string): Promise<RagResult> {
         // demonstrates correct breakpoint placement for when the fixed instructions are large.
         { type: "text", text: "Answer using only the context. If the answer is not in the context, say you don't know. Cite the source.", cache_control: { type: "ephemeral" } },
         { type: "text", text: context },
-      ] as any,
+      ] satisfies AnthropicSDK.TextBlockParam[],
       messages: [{ role: "user", content: question }],
     });
-    const answer = (res.content.find((b: any) => b.type === "text") as any)?.text ?? "";
+    const answer = res.content.find((b): b is AnthropicSDK.TextBlock => b.type === "text")?.text ?? "";
     return { answer, sources, simulated: false };
   }
 

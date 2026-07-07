@@ -4,22 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Eval Arena — A/B Evaluation Harness for LLM Prompts &amp; Models</title>
-<meta name="description" content="Eval Arena pits two LLM configs (prompt v1 vs v2, or model vs model) against a golden dataset and decides the winner in numbers — pass rate, latency, and cost." />
+<meta name="description" content="Eval Arena pits LLM configs against a golden dataset and decides the winner in numbers — pass rate, latency, and cost. Switch between a prompt A/B, a model cost/latency A/B, and a prompt iteration." />
 <link rel="canonical" href="https://arikepstein.github.io/ai-arena/" />
 <meta name="author" content="Arik Epstein" />
 <meta name="theme-color" content="#0A0E16" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="AI Arena" />
 <meta property="og:title" content="Eval Arena — A/B Evaluation Harness for LLMs" />
-<meta property="og:description" content="Two configs, one golden dataset, a decision in numbers — pass rate, latency, and cost. Measurement as the craft." />
+<meta property="og:description" content="Three comparisons, one golden dataset, a decision in numbers — pass rate, latency, and cost. Measurement as the craft." />
 <meta property="og:url" content="https://arikepstein.github.io/ai-arena/" />
 <meta property="og:image" content="https://arikepstein.github.io/ai-arena/og-preview.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Eval Arena dashboard comparing two LLM configs by pass rate, latency, and cost." />
+<meta property="og:image:alt" content="Eval Arena dashboard comparing LLM configs by pass rate, latency, and cost." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Eval Arena — A/B Evaluation Harness for LLMs" />
-<meta name="twitter:description" content="Two configs, one golden dataset, a decision in numbers." />
+<meta name="twitter:description" content="Three comparisons, one golden dataset, a decision in numbers." />
 <meta name="twitter:image" content="https://arikepstein.github.io/ai-arena/og-preview.png" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0E16'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2322D3EE' stroke-width='4' stroke-linecap='round' stroke-dasharray='42 57' transform='rotate(-90 16 16)'/%3E%3C/svg%3E" />
 <style>
@@ -28,6 +28,7 @@
     --ink:#EAEEF6; --mut:#8A94A8; --dim:#828C9F;
     --a:#22D3EE; --a-soft:rgba(34,211,238,.12); --a-line:rgba(34,211,238,.35);
     --b:#A78BFA; --b-soft:rgba(167,139,250,.12); --b-line:rgba(167,139,250,.35);
+    --c:#34D399; --c-soft:rgba(52,211,153,.12); --c-line:rgba(52,211,153,.35);
     --ok:#34D399; --bad:#F87171; --warn:#FBBF24;
     --mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
     --sans:"Inter","Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
@@ -47,8 +48,17 @@
      padding:3px 10px;border-radius:999px;border:1px solid var(--line2)}
   .badge.mock{color:var(--warn);border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
   .badge.live{color:var(--ok);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+  .badge.replay{color:var(--a);border-color:var(--a-line);background:var(--a-soft)}
 
-  .verdict{margin:22px 0 28px;padding:16px 18px;border:1px solid var(--line2);border-radius:14px;
+  /* Scenario selector — pill segmented control, same visual language as the badges */
+  .tabs{display:inline-flex;flex-wrap:wrap;gap:6px;margin:20px 0 2px}
+  .tab{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--mut);background:var(--card);
+     border:1px solid var(--line);border-radius:999px;padding:8px 15px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+  .tab:hover{color:var(--ink);border-color:var(--line2)}
+  .tab[aria-selected="true"]{color:var(--ink);border-color:var(--a);background:var(--a-soft);font-weight:700}
+  .tab:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+
+  .verdict{margin:18px 0 28px;padding:16px 18px;border:1px solid var(--line2);border-radius:14px;
      background:linear-gradient(180deg,var(--bg2),transparent);font-size:15.5px}
   .verdict b{color:var(--ink)}
 
@@ -56,19 +66,21 @@
   .vs{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:stretch;margin-bottom:14px}
   .caserow:focus-visible{outline:2px solid var(--a);outline-offset:2px}
   @media(max-width:640px){
-    .vs{grid-template-columns:1fr;gap:12px}.vsmid{display:none}
+    .vs{grid-template-columns:1fr !important;gap:12px}.vsmid{display:none}
     .cell{width:auto}
     .tools{text-align:left;white-space:normal;word-break:break-word}
+    #cases{min-width:480px}
   }
   .runner{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--card);position:relative;overflow:hidden}
-  .runner.A{border-color:var(--a-line)} .runner.B{border-color:var(--b-line)}
+  .runner.A{border-color:var(--a-line)} .runner.B{border-color:var(--b-line)} .runner.C{border-color:var(--c-line)}
   .runner::before{content:"";position:absolute;inset:0 0 auto 0;height:3px}
-  .runner.A::before{background:var(--a)} .runner.B::before{background:var(--b)}
+  .runner.A::before{background:var(--a)} .runner.B::before{background:var(--b)} .runner.C::before{background:var(--c)}
   .runner .name{font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:var(--mut);margin-bottom:2px}
   .runner .model{font-family:var(--mono);font-size:11px;color:var(--dim)}
   .win-tag{position:absolute;inset-inline-end:16px;top:16px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
      text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
   .runner.A .win-tag{background:var(--a-soft);color:var(--a)} .runner.B .win-tag{background:var(--b-soft);color:var(--b)}
+  .runner.C .win-tag{background:var(--c-soft);color:var(--c)}
 
   .ring{display:flex;align-items:center;gap:18px;margin:16px 0 10px}
   .ring svg{flex:none}
@@ -84,6 +96,7 @@
 
   h2{font-size:15px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);
      margin:34px 0 12px;font-weight:600}
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table{width:100%;border-collapse:separate;border-spacing:0 8px}
   .caserow{background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer}
   .caserow td{padding:12px 14px;vertical-align:top;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -99,7 +112,7 @@
   .detail.open{display:block}
   .detail .box{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px}
   .detail .who{font-family:var(--mono);font-size:11px;letter-spacing:.06em}
-  .detail .who.A{color:var(--a)} .detail .who.B{color:var(--b)}
+  .detail .who.A{color:var(--a)} .detail .who.B{color:var(--b)} .detail .who.C{color:var(--c)}
   .reasons{color:var(--bad);font-size:12.5px;margin-top:4px}
   footer{color:var(--dim);font-size:12.5px;text-align:center;margin-top:40px;font-family:var(--mono)}
   a{color:var(--a)}
@@ -110,15 +123,18 @@
   <p class="eyebrow">A/B Evaluation Harness</p>
   <h1>Eval Arena</h1>
   <div class="meta" id="meta"></div>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Comparison scenario"></div>
   <div class="verdict" id="verdict"></div>
   <div class="vs" id="vs"></div>
   <h2>Per-case comparison — click for details</h2>
-  <table id="cases"></table>
+  <div class="tablewrap"><table id="cases"></table></div>
   <footer id="foot"></footer>
 </div>
 
 <script>
-const DATA = {"scenario":"prompts","scenarioLabel":"Prompt v1 vs v2 (same model)","dataset":"customer-support-golden-v1","mode":"mock","dataNote":"latency and cost are simulated (mock). pass/fail is real.","generatedAt":"2026-07-06T20:04:19.067Z","runners":[{"label":"Prompt v1","model":"claude-sonnet-4-6"},{"label":"Prompt v2","model":"claude-sonnet-4-6"}],"summary":[{"label":"Prompt v1","model":"claude-sonnet-4-6","passRate":63,"passed":5,"total":8,"avgLatencyMs":789,"p95LatencyMs":806,"totalCostUsd":0.013428},{"label":"Prompt v2","model":"claude-sonnet-4-6","passRate":100,"passed":8,"total":8,"avgLatencyMs":803,"p95LatencyMs":823,"totalCostUsd":0.0144}],"results":[{"id":"store-basic","question":"What is the monthly revenue of store 1002?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":789,"costUsd":0.001842},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":789,"costUsd":0.001842}]},{"id":"points-basic","question":"How many points are earned on a purchase of 350 shekels?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":782,"costUsd":0.001926},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":782,"costUsd":0.001926}]},{"id":"customer-basic","question":"Who is customer c-77 and how many points do they have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":780,"costUsd":0.0019140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":780,"costUsd":0.0019140000000000001}]},{"id":"customer-2","question":"How many points does customer c-88 have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":781,"costUsd":0.00183},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":781,"costUsd":0.00183}]},{"id":"refuse-offtopic","question":"What is the weather in Tel Aviv?","note":"","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"enough information\""],"answer":"Let me check that for you.","tools":[],"latencyMs":806,"costUsd":0.000996},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":822,"costUsd":0.000996}]},{"id":"no-hallucinate","question":"What is the revenue of store 9999?","note":"store does not exist — must not invent a number","perRunner":[{"pass":true,"reasons":[],"answer":"Let me check that for you.","tools":[],"latencyMs":806,"costUsd":0.001002},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":822,"costUsd":0.001002}]},{"id":"chain-two-tools","question":"How many points are earned on the monthly revenue of store 1003?","note":"requires chaining","perRunner":[{"pass":false,"reasons":["missing from chain 'calculate_points'","missing from answer '6100'"],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}","tools":["get_store_stats"],"latencyMs":784,"costUsd":0.001974},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":823,"costUsd":0.0029460000000000003}]},{"id":"reasoning","question":"Does customer c-99 have enough points to redeem 100 points?","note":"requires reasoning","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"not enough\""],"answer":"Based on the data: {\"customer_id\":\"c-99\",\"name\":\"Yael\",\"store_id\":\"1001\",\"points\":12,\"tier\":\"bronze\"}","tools":["lookup_customer"],"latencyMs":781,"costUsd":0.001944},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":821,"costUsd":0.001944}]}],"verdict":"A pure prompt win: same model, same latency, ~same cost ($0.013428 vs $0.0144) — only the prompt changed, and the pass-rate jumped from 63% to 100%. This is exactly what prompt versioning + evals are meant to catch: a quality gain without paying more."};
+const DATA = {"dataset":"customer-support-golden-v1","mode":"mock","generatedAt":"2026-07-07T02:14:34.576Z","scenarios":[{"scenario":"prompts","tab":"Prompt v1 vs v2","scenarioLabel":"Prompt v1 vs v2 (same model)","frame":"Same model, near-identical cost — the prompt is the only thing that changed. Did quality actually move?","sameModel":true,"dataNote":"pass/fail and tool calls are real & deterministic; latency and cost are simulated.","runners":[{"label":"Prompt v1","model":"claude-sonnet-4-6","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to answer."},{"label":"Prompt v2","model":"claude-sonnet-4-6","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to fetch real data.\n- If a task needs two tools in sequence (for example, calculating points from a store's revenue) — call both.\n- Draw an explicit conclusion from the data (for example, whether there are enough points: yes/no).\n- If you don't have the information to answer — say \"I don't have enough information\", and don't make things up."}],"summary":[{"label":"Prompt v1","model":"claude-sonnet-4-6","passRate":50,"passed":4,"total":8,"avgLatencyMs":803,"p95LatencyMs":822,"totalCostUsd":0.013428},{"label":"Prompt v2","model":"claude-sonnet-4-6","passRate":100,"passed":8,"total":8,"avgLatencyMs":803,"p95LatencyMs":822,"totalCostUsd":0.0144}],"results":[{"id":"store-basic","question":"What is the monthly revenue of store 1002?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":822,"costUsd":0.001842},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":822,"costUsd":0.001842}]},{"id":"points-basic","question":"How many points are earned on a purchase of 350 shekels?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":786,"costUsd":0.001926},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":786,"costUsd":0.001926}]},{"id":"customer-basic","question":"Who is customer c-77 and how many points do they have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":784,"costUsd":0.0019140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":784,"costUsd":0.0019140000000000001}]},{"id":"customer-2","question":"How many points does customer c-88 have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":820,"costUsd":0.00183},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":820,"costUsd":0.00183}]},{"id":"refuse-offtopic","question":"What is the weather in Tel Aviv?","note":"","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"enough information\""],"answer":"Let me check that for you.","tools":[],"latencyMs":812,"costUsd":0.000996},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":812,"costUsd":0.000996}]},{"id":"no-hallucinate","question":"What is the revenue of store 9999?","note":"store does not exist — must not invent a number","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"enough information\""],"answer":"Let me check that for you.","tools":[],"latencyMs":814,"costUsd":0.001002},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":814,"costUsd":0.001002}]},{"id":"chain-two-tools","question":"How many points are earned on the monthly revenue of store 1003?","note":"requires chaining","perRunner":[{"pass":false,"reasons":["missing from chain 'calculate_points'","missing from answer '6100'"],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}","tools":["get_store_stats"],"latencyMs":794,"costUsd":0.001974},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":794,"costUsd":0.0029460000000000003}]},{"id":"reasoning","question":"Does customer c-99 have enough points to redeem 100 points?","note":"requires reasoning","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"not enough\""],"answer":"Based on the data: {\"customer_id\":\"c-99\",\"name\":\"Yael\",\"store_id\":\"1001\",\"points\":12,\"tier\":\"bronze\"}","tools":["lookup_customer"],"latencyMs":789,"costUsd":0.001944},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":789,"costUsd":0.001944}]}],"verdict":"Same model — the prompt is the only config that changed, and the pass-rate went from 50% to 100% at close cost ($0.013428 vs $0.0144). This is what prompt versioning + evals are meant to catch: a quality change you can prove with a number."},{"scenario":"models","tab":"Haiku vs Sonnet vs Opus","scenarioLabel":"Model comparison (Haiku vs Sonnet vs Opus)","frame":"Same job, three models. Quality ties — so the decision is pure cost and latency. Which do you ship?","sameModel":false,"dataNote":"pass/fail and tool calls are real & deterministic; latency and cost are simulated.","runners":[{"label":"Haiku · fast","model":"claude-haiku-4-5","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to fetch real data.\nNever invent numbers. If information is missing, say that you don't know."},{"label":"Sonnet · work","model":"claude-sonnet-4-6","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to fetch real data.\nNever invent numbers. If information is missing, say that you don't know."},{"label":"Opus · smart","model":"claude-opus-4-8","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to fetch real data.\nNever invent numbers. If information is missing, say that you don't know."}],"summary":[{"label":"Haiku · fast","model":"claude-haiku-4-5","passRate":100,"passed":8,"total":8,"avgLatencyMs":363,"p95LatencyMs":382,"totalCostUsd":0.0048},{"label":"Sonnet · work","model":"claude-sonnet-4-6","passRate":100,"passed":8,"total":8,"avgLatencyMs":803,"p95LatencyMs":822,"totalCostUsd":0.0144},{"label":"Opus · smart","model":"claude-opus-4-8","passRate":100,"passed":8,"total":8,"avgLatencyMs":1223,"p95LatencyMs":1242,"totalCostUsd":0.024}],"results":[{"id":"store-basic","question":"What is the monthly revenue of store 1002?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":382,"costUsd":0.0006140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":822,"costUsd":0.001842},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":1242,"costUsd":0.00307}]},{"id":"points-basic","question":"How many points are earned on a purchase of 350 shekels?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":346,"costUsd":0.000642},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":786,"costUsd":0.001926},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":1206,"costUsd":0.00321}]},{"id":"customer-basic","question":"Who is customer c-77 and how many points do they have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":344,"costUsd":0.000638},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":784,"costUsd":0.0019140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":1204,"costUsd":0.00319}]},{"id":"customer-2","question":"How many points does customer c-88 have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":380,"costUsd":0.00061},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":820,"costUsd":0.00183},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":1240,"costUsd":0.00305}]},{"id":"refuse-offtopic","question":"What is the weather in Tel Aviv?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":372,"costUsd":0.00033200000000000005},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":812,"costUsd":0.000996},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":1232,"costUsd":0.00166}]},{"id":"no-hallucinate","question":"What is the revenue of store 9999?","note":"store does not exist — must not invent a number","perRunner":[{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":374,"costUsd":0.00033400000000000004},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":814,"costUsd":0.001002},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":1234,"costUsd":0.00167}]},{"id":"chain-two-tools","question":"How many points are earned on the monthly revenue of store 1003?","note":"requires chaining","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":354,"costUsd":0.000982},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":794,"costUsd":0.0029460000000000003},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":1214,"costUsd":0.0049099999999999994}]},{"id":"reasoning","question":"Does customer c-99 have enough points to redeem 100 points?","note":"requires reasoning","perRunner":[{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":349,"costUsd":0.000648},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":789,"costUsd":0.001944},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":1209,"costUsd":0.0032400000000000003}]}],"verdict":"A tie on quality (100%) across 3 models. The decision is pure cost/latency: Haiku · fast is ~5.0× cheaper than Opus · smart and the fastest. Ship Haiku · fast."},{"scenario":"iterations","tab":"Iteration v1→v2→v3","scenarioLabel":"Prompt iteration: v1 → v2 → v3","frame":"One prompt, three versions. Progress you can measure — not just claim.","sameModel":true,"dataNote":"pass/fail and tool calls are real & deterministic; latency and cost are simulated.","runners":[{"label":"v1","model":"claude-sonnet-4-6","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to answer."},{"label":"v2","model":"claude-sonnet-4-6","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to fetch real data.\n- If a task needs two tools in sequence (for example, calculating points from a store's revenue) — call both.\n- Draw an explicit conclusion from the data (for example, whether there are enough points: yes/no).\n- If you don't have the information to answer — say \"I don't have enough information\", and don't make things up."},{"label":"v3","model":"claude-sonnet-4-6","systemPrompt":"You are a support assistant for a loyalty platform. Use the tools to fetch real data.\n- If a task needs two tools in sequence (for example, calculating points from a store's revenue) — call both.\n- Draw an explicit conclusion from the data (for example, whether there are enough points: yes/no).\n- If you don't have the information to answer — say \"I don't have enough information\", and don't make things up.\n- Always include the exact number/value from the tool in your answer."}],"summary":[{"label":"v1","model":"claude-sonnet-4-6","passRate":50,"passed":4,"total":8,"avgLatencyMs":803,"p95LatencyMs":822,"totalCostUsd":0.013428},{"label":"v2","model":"claude-sonnet-4-6","passRate":100,"passed":8,"total":8,"avgLatencyMs":803,"p95LatencyMs":822,"totalCostUsd":0.0144},{"label":"v3","model":"claude-sonnet-4-6","passRate":100,"passed":8,"total":8,"avgLatencyMs":803,"p95LatencyMs":822,"totalCostUsd":0.0144}],"results":[{"id":"store-basic","question":"What is the monthly revenue of store 1002?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":822,"costUsd":0.001842},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":822,"costUsd":0.001842},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1002\",\"name\":\"BurgerHub Haifa\",\"monthly_revenue\":95000,\"active_members\":1440}","tools":["get_store_stats"],"latencyMs":822,"costUsd":0.001842}]},{"id":"points-basic","question":"How many points are earned on a purchase of 350 shekels?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":786,"costUsd":0.001926},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":786,"costUsd":0.001926},{"pass":true,"reasons":[],"answer":"Based on the data: {\"amount_shekel\":350,\"points\":35}","tools":["calculate_points"],"latencyMs":786,"costUsd":0.001926}]},{"id":"customer-basic","question":"Who is customer c-77 and how many points do they have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":784,"costUsd":0.0019140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":784,"costUsd":0.0019140000000000001},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-77\",\"name\":\"Dana\",\"store_id\":\"1001\",\"points\":240,\"tier\":\"gold\"}","tools":["lookup_customer"],"latencyMs":784,"costUsd":0.0019140000000000001}]},{"id":"customer-2","question":"How many points does customer c-88 have?","note":"","perRunner":[{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":820,"costUsd":0.00183},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":820,"costUsd":0.00183},{"pass":true,"reasons":[],"answer":"Based on the data: {\"customer_id\":\"c-88\",\"name\":\"Omer\",\"store_id\":\"1002\",\"points\":55,\"tier\":\"silver\"}","tools":["lookup_customer"],"latencyMs":820,"costUsd":0.00183}]},{"id":"refuse-offtopic","question":"What is the weather in Tel Aviv?","note":"","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"enough information\""],"answer":"Let me check that for you.","tools":[],"latencyMs":812,"costUsd":0.000996},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":812,"costUsd":0.000996},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":812,"costUsd":0.000996}]},{"id":"no-hallucinate","question":"What is the revenue of store 9999?","note":"store does not exist — must not invent a number","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"enough information\""],"answer":"Let me check that for you.","tools":[],"latencyMs":814,"costUsd":0.001002},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":814,"costUsd":0.001002},{"pass":true,"reasons":[],"answer":"I don't have enough information to answer.","tools":[],"latencyMs":814,"costUsd":0.001002}]},{"id":"chain-two-tools","question":"How many points are earned on the monthly revenue of store 1003?","note":"requires chaining","perRunner":[{"pass":false,"reasons":["missing from chain 'calculate_points'","missing from answer '6100'"],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}","tools":["get_store_stats"],"latencyMs":794,"costUsd":0.001974},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":794,"costUsd":0.0029460000000000003},{"pass":true,"reasons":[],"answer":"Based on the data: {\"store_id\":\"1003\",\"name\":\"SushiBar BS\",\"monthly_revenue\":61000,\"active_members\":870}; {\"amount_shekel\":61000,\"points\":6100}","tools":["get_store_stats","calculate_points"],"latencyMs":794,"costUsd":0.0029460000000000003}]},{"id":"reasoning","question":"Does customer c-99 have enough points to redeem 100 points?","note":"requires reasoning","perRunner":[{"pass":false,"reasons":["mock judge: answer did not signal \"not enough\""],"answer":"Based on the data: {\"customer_id\":\"c-99\",\"name\":\"Yael\",\"store_id\":\"1001\",\"points\":12,\"tier\":\"bronze\"}","tools":["lookup_customer"],"latencyMs":789,"costUsd":0.001944},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":789,"costUsd":0.001944},{"pass":true,"reasons":[],"answer":"No, there are not enough points (has 12).","tools":["lookup_customer"],"latencyMs":789,"costUsd":0.001944}]}],"verdict":"Progression: v1 50%  →  v2 100%  →  v3 100%. The last version didn't move the aggregate — the improvement it targets has no eval measuring it yet. Add a dedicated case, or it doesn't exist as far as the system is concerned."}]};
+const COLORS = ['var(--a)','var(--b)','var(--c)'], KEYS = ['A','B','C'];
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 function ring(pct, color){
   const r=26,c=2*Math.PI*r,off=c*(1-pct/100);
@@ -129,25 +145,42 @@ function ring(pct, color){
       transform="rotate(-90 36 36)"/></svg>`;
 }
 
-function render(){
-  if(!DATA){document.getElementById('verdict').textContent='No data — run: npx tsx evals/arena.ts';return;}
-  const colors=['var(--a)','var(--b)'], keys=['A','B'];
+// Scenario-aware winner: prompts→unique quality leader (none on a tie); models→best value (cheapest)
+// on a quality tie, else quality leader; iterations→latest version at the top score.
+function winner(sc){
+  const s=sc.summary, rates=s.map(x=>x.passRate), max=Math.max(...rates);
+  const uniq = rates.filter(r=>r===max).length===1 ? rates.indexOf(max) : -1;
+  if(sc.scenario==='iterations'){ return {i:rates.lastIndexOf(max), t:'◆ current best'}; }
+  if(sc.scenario==='models'){
+    if(uniq===-1){ let b=0; for(let k=1;k<s.length;k++){ if(s[k].totalCostUsd<s[b].totalCostUsd) b=k; } return {i:b, t:'★ best value'}; }
+    return {i:uniq, t:'◤ quality leader'};
+  }
+  return uniq===-1 ? {i:-1, t:''} : {i:uniq, t:'◤ quality leader'};
+}
+
+let ACTIVE = 0;
+function renderTabs(){
+  document.getElementById('tabs').innerHTML = DATA.scenarios.map((sc,i)=>
+    `<button class="tab" role="tab" aria-selected="${i===ACTIVE}" onclick="select(${i})">${esc(sc.tab||sc.scenarioLabel)}</button>`).join('');
+}
+
+function renderScenario(sc){
+  const n = sc.summary.length, win = winner(sc);
 
   document.getElementById('meta').innerHTML =
-    `<span class="badge ${DATA.mode}">${DATA.mode}</span>`+
-    `<span style="color:var(--ink);font-weight:700">${DATA.scenarioLabel||''}</span>`+
-    `<span>· dataset: <b style="color:var(--ink)">${DATA.dataset}</b></span>`+
-    `<span>· ${DATA.dataNote}</span>`;
+    `<span class="badge ${esc(DATA.mode)}">${esc(DATA.mode)}</span>`+
+    `<span style="color:var(--ink);font-weight:700">${esc(sc.scenarioLabel)}</span>`+
+    `<span>· dataset: <b style="color:var(--ink)">${esc(DATA.dataset)}</b></span>`+
+    `<span>· ${esc(sc.dataNote)}</span>`;
 
-  document.getElementById('verdict').innerHTML = `<b>Verdict:</b> ${DATA.verdict}`;
+  document.getElementById('verdict').innerHTML = `<b>Verdict:</b> ${esc(sc.verdict)}`;
 
-  const best = Math.max(...DATA.summary.map(s=>s.passRate));
-  const vs = DATA.summary.map((s,i)=>`
-    <div class="runner ${keys[i]}">
-      ${s.passRate===best?`<span class="win-tag">◤ quality leader</span>`:''}
-      <div class="name">${s.label}</div><div class="model">${s.model}</div>
-      <div class="ring">${ring(s.passRate,colors[i])}
-        <div><div class="big" style="color:${colors[i]}">${s.passRate}%</div>
+  const cards = sc.summary.map((s,i)=>`
+    <div class="runner ${KEYS[i]}">
+      ${win.i===i&&win.t?`<span class="win-tag">${win.t}</span>`:''}
+      <div class="name">${esc(s.label)}</div><div class="model">${esc(s.model)}</div>
+      <div class="ring">${ring(s.passRate,COLORS[i])}
+        <div><div class="big" style="color:${COLORS[i]}">${s.passRate}%</div>
         <div class="sub">${s.passed}/${s.total} passed</div></div></div>
       <div class="kpis">
         <div class="kpi"><div class="l">avg latency</div><div class="v">${s.avgLatencyMs}ms</div></div>
@@ -155,33 +188,58 @@ function render(){
         <div class="kpi"><div class="l">cost</div><div class="v">$${s.totalCostUsd}</div></div>
       </div>
     </div>`);
-  document.getElementById('vs').innerHTML = vs[0]+`<div class="vsmid"><span>VS</span></div>`+vs[1];
+  const glyph = sc.scenario==='iterations' ? '→' : 'VS';
+  const conn = `<div class="vsmid"><span>${glyph}</span></div>`;
+  const vs = document.getElementById('vs');
+  vs.style.gridTemplateColumns = Array(n).fill('1fr').join(' 64px ');
+  vs.innerHTML = cards.join(conn);
 
-  const rows = DATA.results.map((r,ri)=>{
-    const cell=(pr,k)=>`<td class="cell"><span class="chip ${pr.pass?'pass':'fail'}">${pr.pass?'PASS':'FAIL'}</span>
-      <div class="tools">${pr.tools.length?pr.tools.join(' → '):'— no tools —'}</div></td>`;
-    const detail=DATA.results[ri].perRunner.map((pr,i)=>`
-      <div class="box"><span class="who ${keys[i]}">${DATA.summary[i].label}</span>
-        <div style="margin-top:4px">${pr.answer||'—'}</div>
-        ${pr.reasons&&pr.reasons.length?`<div class="reasons">✗ ${pr.reasons.join(' · ')}</div>`:''}
+  const rows = sc.results.map(r=>{
+    const cells = r.perRunner.map(pr=>`<td class="cell"><span class="chip ${pr.pass?'pass':'fail'}">${pr.pass?'PASS':'FAIL'}</span>
+      <div class="tools">${pr.tools.length?pr.tools.map(esc).join(' → '):'— no tools —'}</div></td>`).join('');
+    const detail = r.perRunner.map((pr,i)=>`
+      <div class="box"><span class="who ${KEYS[i]}">${esc(sc.summary[i].label)}</span>
+        <div style="margin-top:4px">${esc(pr.answer)||'—'}</div>
+        ${pr.reasons&&pr.reasons.length?`<div class="reasons">✗ ${pr.reasons.map(esc).join(' · ')}</div>`:''}
       </div>`).join('');
     return `<tr class="caserow" tabindex="0" role="button" aria-expanded="false" onclick="toggleCase(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCase(this);}">
-        <td><div class="q">${r.question}</div>${r.note?`<div class="note">${r.note}</div>`:''}</td>
-        ${cell(r.perRunner[0],'A')}${cell(r.perRunner[1],'B')}
+        <td><div class="q">${esc(r.question)}</div>${r.note?`<div class="note">${esc(r.note)}</div>`:''}</td>${cells}
       </tr>
-      <tr><td colspan="3" style="padding:0;border:0"><div class="detail">${detail}</div></td></tr>`;
+      <tr><td colspan="${n+1}" style="padding:0;border:0"><div class="detail">${detail}</div></td></tr>`;
   }).join('');
   document.getElementById('cases').innerHTML =
-    `<thead><tr><td></td><td class="cell" style="color:var(--a);font-family:var(--mono);font-size:12px">${DATA.summary[0].label}</td>
-     <td class="cell" style="color:var(--b);font-family:var(--mono);font-size:12px">${DATA.summary[1].label}</td></tr></thead>`+rows;
+    `<thead><tr><td></td>`+
+    sc.summary.map((s,i)=>`<td class="cell" style="color:${COLORS[i]};font-family:var(--mono);font-size:12px">${esc(s.label)}</td>`).join('')+
+    `</tr></thead>`+rows;
+}
 
-  document.getElementById('foot').textContent = 'Eval Arena · The idea: measurement is the craft. Two configs, a golden dataset, a decision in numbers.';
+function select(i){
+  ACTIVE = i;
+  history.replaceState(null,'',`#${DATA.scenarios[i].scenario}`);
+  document.querySelectorAll('.tab').forEach((t,ti)=>t.setAttribute('aria-selected', String(ti===i)));
+  renderScenario(DATA.scenarios[i]);
+}
+
+function render(){
+  if(!DATA || !DATA.scenarios || !DATA.scenarios.length){
+    document.getElementById('verdict').textContent='No data — run: npm run arena'; return;
+  }
+  const hash = (location.hash||'').replace('#','');
+  const fromHash = DATA.scenarios.findIndex(s=>s.scenario===hash);
+  ACTIVE = fromHash>=0 ? fromHash : 0;
+  renderTabs();
+  renderScenario(DATA.scenarios[ACTIVE]);
+  document.getElementById('foot').textContent = 'Eval Arena · measurement is the craft. Configs, a golden dataset, a decision in numbers.';
 }
 function toggleCase(tr){
   const detail = tr.nextElementSibling.querySelector('.detail');
   const open = detail.classList.toggle('open');
   tr.setAttribute('aria-expanded', String(open));
 }
+window.addEventListener('hashchange', ()=>{
+  const i=DATA.scenarios.findIndex(s=>s.scenario===(location.hash||'').replace('#',''));
+  if(i>=0 && i!==ACTIVE) select(i);
+});
 render();
 </script>
 </body>

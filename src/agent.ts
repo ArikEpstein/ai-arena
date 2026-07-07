@@ -30,7 +30,7 @@ export async function runAgent(question: string, cfg: RunConfig): Promise<AgentR
     const toolUses = blocks.filter((b) => b.type === "tool_use") as Extract<Block, { type: "tool_use" }>[];
     if (toolUses.length === 0) {
       const textBlock = blocks.find((b) => b.type === "text") as Extract<Block, { type: "text" }> | undefined;
-      return finalize(textBlock?.text ?? "", trace, usage, start, cfg);
+      return finalize(textBlock?.text ?? "", trace, usage, start, cfg, question);
     }
     // Push the full assistant turn (any text preamble + the tool_use blocks), not just the tool calls,
     // so the model keeps its own reasoning in the conversation history on later live steps.
@@ -44,14 +44,14 @@ export async function runAgent(question: string, cfg: RunConfig): Promise<AgentR
     });
     messages.push({ role: "user", content: results });
   }
-  return finalize("Stopped: exceeded the maximum number of steps.", trace, usage, start, cfg);
+  return finalize("Stopped: exceeded the maximum number of steps.", trace, usage, start, cfg, question);
 }
 
-function finalize(answer: string, trace: TraceStep[], usage: Usage, start: number, cfg: RunConfig): AgentResult {
+function finalize(answer: string, trace: TraceStep[], usage: Usage, start: number, cfg: RunConfig, question: string): AgentResult {
   const real = Date.now() - start;
   const sim = MODE === "mock";
-  // Simulated latency = a function of the model (not the prompt!). So when comparing prompts
-  // on the same model, latency is identical and the only difference measured is quality.
-  const simMs = (MODEL_LATENCY[cfg.model] ?? 600) + (answer.length % 50);
+  // Simulated latency = model baseline + deterministic per-question jitter. Keying the jitter off the
+  // question (not the answer/prompt) means two prompts on the same model get identical latency — a clean A/B.
+  const simMs = (MODEL_LATENCY[cfg.model] ?? 600) + (question.length % 50);
   return { answer, trace, usage, latencyMs: sim ? simMs : real, simulatedLatency: sim };
 }

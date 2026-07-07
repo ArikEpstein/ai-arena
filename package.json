@@ -18,6 +18,9 @@
     "type": "git",
     "url": "https://github.com/ArikEpstein/ai-arena.git"
   },
+  "bugs": {
+    "url": "https://github.com/ArikEpstein/ai-arena/issues"
+  },
   "homepage": "https://github.com/ArikEpstein/ai-arena#readme",
   "engines": {
     "node": ">=20.12"
@@ -32,6 +35,7 @@
     "arena:live": "LLM_MODE=live tsx evals/arena.ts",
     "arena:record": "LLM_MODE=live RECORD=1 tsx evals/arena.ts",
     "arena:replay": "LLM_MODE=mock REPLAY=1 tsx evals/arena.ts",
+    "docs:publish": "node -e \"require('fs').copyFileSync('web/dashboard.html','docs/index.html')\"",
     "typecheck": "tsc --noEmit",
     "test": "LLM_MODE=mock ANTHROPIC_API_KEY= VOYAGE_API_KEY= vitest run",
     "ci": "npm run typecheck && npm run test && npm run arena && npm run arena:replay"

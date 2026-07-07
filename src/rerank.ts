@@ -1,6 +1,6 @@
 // src/rerank.ts — the second stage of two-stage RAG (bi-encoder retrieve -> cross-encoder rerank).
-// Why it's impressive and real: fast vector retrieval brings back a topK that is "roughly right";
-// the reranker reads query+chunk together and ranks with much higher precision. A classic production pattern.
+// Retrieval returns a roughly-right topK; the reranker reads query+chunk together and reorders with
+// higher precision. A standard production pattern.
 import { RERANK_MODEL } from "./config.js";
 import type { Hit } from "./vectorStore.js";
 
@@ -12,9 +12,9 @@ async function voyageRerank(query: string, hits: Hit[], topN: number): Promise<H
     signal: AbortSignal.timeout(15_000), // don't let a hung upstream stall the request
   });
   if (!res.ok) throw new Error(`Voyage rerank ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  // data.results: [{ index, relevance_score }]
-  return data.results.map((r: any) => ({ ...hits[r.index], score: r.relevance_score }));
+  // Voyage returns the ranking under `data` (not `results`): { data: [{ index, relevance_score }], ... }
+  const body = (await res.json()) as { data: { index: number; relevance_score: number }[] };
+  return body.data.map((r) => ({ ...hits[r.index], score: r.relevance_score }));
 }
 
 // Fallback: no reranker without a key — return the existing order (identity).

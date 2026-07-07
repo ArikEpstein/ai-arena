@@ -49,7 +49,8 @@ async function liveJudge(rubric: string, question: string, answer: string): Prom
       'Reply with ONLY compact JSON: {"pass": true|false, "reason": "<one short sentence>"}.',
     messages: [{ role: "user", content: `RUBRIC: ${rubric}\nQUESTION: ${question}\nANSWER: ${answer}` }],
   });
-  const text = (res.content.find((b: any) => b.type === "text") as any)?.text ?? "";
+  const block = res.content.find((b) => b.type === "text");
+  const text = block?.type === "text" ? block.text : "";
   try {
     const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
     return { pass: !!parsed.pass, reason: String(parsed.reason ?? "no reason given") };

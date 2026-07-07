@@ -28,9 +28,14 @@ export interface RunConfig {
 }
 
 // ---------- LIVE ----------
-async function liveComplete(cfg: RunConfig, system: string, messages: Msg[], tools: Tool[]): Promise<Completion> {
+// Lazily import the SDK so the mock path never needs the dependency (or an API key).
+async function anthropicClient() {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic();
+  return new Anthropic();
+}
+
+async function liveComplete(cfg: RunConfig, system: string, messages: Msg[], tools: Tool[]): Promise<Completion> {
+  const client = await anthropicClient();
   const res = await client.messages.create({
     model: cfg.model,
     max_tokens: 1024,
@@ -134,8 +139,7 @@ export async function complete(cfg: RunConfig, system: string, messages: Msg[], 
 // stream() — for the chat endpoint
 export async function* stream(text: string, cfg: RunConfig = { label: "chat", model: MODELS.work }) {
   if (MODE === "live") {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic();
+    const client = await anthropicClient();
     const s = client.messages.stream({
       model: cfg.model,
       max_tokens: 1024,

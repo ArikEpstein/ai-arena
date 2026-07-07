@@ -10,7 +10,7 @@ export const MODE: Mode =
 if (process.env.LLM_MODE === "live" && !process.env.ANTHROPIC_API_KEY)
   console.warn("[config] LLM_MODE=live but ANTHROPIC_API_KEY is unset — running in mock mode (numbers are simulated).");
 
-// Model IDs, centralized so a version bump is a one-line edit.
+// Model IDs.
 export const MODELS = {
   fast: "claude-haiku-4-5",   // cheap/fast — classification, routing, evals
   work: "claude-sonnet-4-6",  // the production default

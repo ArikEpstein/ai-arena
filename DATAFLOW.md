@@ -167,7 +167,7 @@ retrieves broadly, reranks precisely, and grounds an answer.
 
 1. `question` must be a non-empty string, else **400**.
 2. `store.search(question, 6)` — embed query (`input_type: "query"`), cosine over all items, top 6 (recall).
-3. `rerank(question, hits, 3)` — Voyage cross-encoder to top 3 (precision), or identity fallback + warn.
+3. `rerank(question, hits, 3)` — Voyage `rerank-2.5` cross-encoder to top 3 (precision); with no `VOYAGE_API_KEY` it falls back to identity order, and an upstream failure is caught → identity order + `console.warn`.
 4. Assemble `[source] text` context and rounded `sources[]`.
 5. **Mock:** return the top retrieved chunk with a `(mock)` label prepended (`simulated: true`). **Live:** call Anthropic
    `claude-sonnet-4-6` with a two-block system prompt (stable instruction carries the prompt-cache
@@ -213,6 +213,79 @@ sequenceDiagram
         RAG-->>Express: top chunk, sources, simulated=true
     end
     Express-->>Browser: 200 with answer, sources, simulated
+```
+
+---
+
+## 4. Eval Arena — `npm run arena` (offline build + CI gate)
+
+Not an HTTP route: a `npx tsx evals/arena.ts` pipeline that runs the golden `DATASET` through every
+runner of every scenario, grades each answer, aggregates a verdict, and bakes the whole result into a
+static dashboard. It reuses the exact same `runAgent()` loop as `/api/agent`, so the Arena measures the
+real agent, not a stand-in.
+
+**Scenarios (`SCENARIOS` in `evals/arena.ts`)** — each is a set of `RunConfig` runners over the same dataset:
+
+- `prompts` — Prompt v1 vs v2 on the same model (isolate a prompt change).
+- `models` — Haiku vs Sonnet vs Opus, same prompt (the quality vs cost/latency tradeoff; all three tie on quality → ship the cheapest).
+- `iterations` — v1 → v2 → v3 on the same model (prove each step moves the number).
+
+`scenarioKeys()` picks which to run: **all three** by default; a single one when `SCENARIO=x` is set;
+`prompts` only under record/replay (fixtures exist for that scenario alone).
+
+**Flow**
+
+1. For each scenario key, `runScenario(key)` loops the golden `DATASET`; for every case × every runner it
+   calls `runAgent(question, cfg)` (the bounded tool loop), then `grade()` (deterministic tool-trace +
+   substring checks), and — when the case has a `rubric` — `judgeAnswer()` (LLM-as-judge: a deterministic
+   stand-in in mock, a real model in live, a recorded verdict in replay).
+2. It aggregates a per-runner `summary` (`passRate`, avg/p95 latency, total cost) and a one-line
+   `decideVerdict()` string (model comparison → a cost/latency call once quality is settled; same-model
+   A/B → a prompt win/tie; 3+ same-model versions → a progression read).
+3. **Mock:** the pass/fail gap comes from each runner's injected `MockProfile` (`{ chains, reasons, refuses }`),
+   *not* the prompt text (mock ignores it) — so passing cases show identical output across configs. The gap
+   is illustrative; the real signal comes from `replay` (real recorded output) or `live`. `dataNote` states,
+   per mode, which numbers are real vs simulated.
+4. `main()` collects every scenario into one combined payload `{ dataset, mode, generatedAt, scenarios[] }`,
+   writes `arena-results.json`, then injects that payload into `web/dashboard.template.html` — replacing the
+   `/*__ARENA_DATA__*/null` token, with every `<` escaped to `\u003c` so embedded JSON can't break out of the inline
+   `<script>` — producing `web/dashboard.html`. `npm run docs:publish` copies that to `docs/index.html` (the
+   live GitHub Pages site). The dashboard has a scenario selector (hash-deep-linkable tabs), a per-case diff,
+   and a scenario-aware verdict/winner badge.
+5. **CI gate:** if *any* scenario's best pass-rate `< ARENA_GATE` (default 80), the process exits **1** and
+   breaks the build. Otherwise it prints the pass line and exits 0.
+
+`runScenario()` is pure (no writes, console, or `process.exit`) so it's unit-testable; the `main()`
+pipeline runs only when the file is invoked directly.
+
+```mermaid
+sequenceDiagram
+    participant CLI as npm run arena
+    participant Main as main in arena.ts
+    participant Scenario as runScenario(key)
+    participant Agent as runAgent (same as /api/agent)
+    participant Graders as grade + judgeAnswer
+    participant Out as dashboard.html + arena-results.json
+
+    CLI->>Main: npx tsx evals/arena.ts
+    Main->>Main: scenarioKeys() — all three, or one (SCENARIO / record / replay)
+    loop each scenario
+        Main->>Scenario: runScenario(key)
+        loop each DATASET case × each runner
+            Scenario->>Agent: runAgent(question, cfg)
+            Agent-->>Scenario: answer, trace, usage, latency
+            Scenario->>Graders: grade() + judgeAnswer() if rubric
+            Graders-->>Scenario: pass/fail + reasons
+        end
+        Scenario->>Scenario: summary (passRate, p95, cost) + decideVerdict()
+        Scenario-->>Main: ScenarioPayload
+    end
+    Main->>Out: write arena-results.json + inject into dashboard.template.html
+    alt any scenario best pass-rate < ARENA_GATE
+        Main-->>CLI: exit 1 (build fails)
+    else all pass
+        Main-->>CLI: exit 0 (gate passed)
+    end
 ```
 
 ---

@@ -25,8 +25,9 @@ app.get("/api/chat", async (req, res) => {
     res.write(`event: done\ndata: {}\n\n`);
   } catch (e) {
     // Headers are already flushed, so surface the error as an SSE event rather than an HTTP status.
+    // Log the detail server-side; send the client only a generic message (no internal-error leak).
     console.error("[/api/chat]", e);
-    res.write(`event: error\ndata: ${JSON.stringify({ error: String(e) })}\n\n`);
+    res.write(`event: error\ndata: ${JSON.stringify({ error: "stream failed" })}\n\n`);
   } finally {
     res.end();
   }
@@ -40,7 +41,7 @@ app.post("/api/agent", async (req, res) => {
   try {
     const r = await runAgent(message, { label: "api", model: MODELS.work });
     res.json({ answer: r.answer, trace: r.trace, usage: r.usage, latencyMs: r.latencyMs });
-  } catch (e) { console.error("[/api/agent]", e); res.status(500).json({ error: String(e) }); }
+  } catch (e) { console.error("[/api/agent]", e); res.status(500).json({ error: "internal error" }); }
 });
 
 // 3. Two-stage RAG
@@ -49,7 +50,7 @@ app.post("/api/rag", async (req, res) => {
   if (typeof question !== "string" || !question.trim())
     return res.status(400).json({ error: "body.question must be a non-empty string" });
   try { res.json(await answerWithRag(question)); }
-  catch (e) { console.error("[/api/rag]", e); res.status(500).json({ error: String(e) }); }
+  catch (e) { console.error("[/api/rag]", e); res.status(500).json({ error: "internal error" }); }
 });
 
 const PORT = Number(process.env.PORT ?? 3000);

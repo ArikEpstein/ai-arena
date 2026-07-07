@@ -13,6 +13,7 @@ const STORES: Record<string, { name: string; monthly_revenue: number; active_mem
   "1002": { name: "BurgerHub Haifa", monthly_revenue: 95000, active_members: 1440 },
   "1003": { name: "SushiBar BS", monthly_revenue: 61000, active_members: 870 },
 };
+
 const CUSTOMERS: Record<string, { name: string; store_id: string; points: number; tier: string }> = {
   "c-77": { name: "Dana", store_id: "1001", points: 240, tier: "gold" },
   "c-88": { name: "Omer", store_id: "1002", points: 55, tier: "silver" },
@@ -50,19 +51,22 @@ export function runTool(name: string, rawInput: unknown): unknown {
   if (!schema) return { error: `unknown tool ${name}` };
   const parsed = schema.safeParse(rawInput);
   if (!parsed.success) return { error: `invalid args for ${name}`, issues: parsed.error.issues };
-  const input: any = parsed.data;
   switch (name) {
     case "get_store_stats": {
-      const store = STORES[input.store_id];
-      return store ? { store_id: input.store_id, ...store } : { error: "store not found" };
+      const { store_id } = parsed.data as { store_id: string };
+      const store = STORES[store_id];
+      return store ? { store_id, ...store } : { error: "store not found" };
     }
     case "lookup_customer": {
-      const id = String(input.customer_id).toLowerCase(); // a live model may forward "C-77" as typed
+      const { customer_id } = parsed.data as { customer_id: string };
+      const id = customer_id.toLowerCase(); // a live model may forward "C-77" as typed
       const customer = CUSTOMERS[id];
       return customer ? { customer_id: id, ...customer } : { error: "customer not found" };
     }
-    case "calculate_points":
-      return { amount_shekel: input.amount_shekel, points: Math.round(input.amount_shekel * 0.1) };
+    case "calculate_points": {
+      const { amount_shekel } = parsed.data as { amount_shekel: number };
+      return { amount_shekel, points: Math.round(amount_shekel * 0.1) };
+    }
     default:
       return { error: "unhandled" };
   }

@@ -32,7 +32,7 @@ let loaded = false;
 function load(): void {
   if (loaded) return;
   if (existsSync(FILE)) {
-    const parsed = JSON.parse(readFileSync(FILE, "utf8"));
+    const parsed = JSON.parse(readFileSync(FILE, "utf8")) as Partial<Store>;
     store = { completions: parsed.completions ?? {}, judgments: parsed.judgments ?? {} };
   }
   loaded = true;
