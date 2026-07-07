@@ -1,6 +1,5 @@
-// src/chunking.ts — real chunking. RAG quality is decided here, not in the model.
-// Strategy: recursive splitting along natural boundaries (paragraph -> sentence), with overlap
-// that prevents cutting an idea in half. Each chunk carries metadata for citation.
+// src/chunking.ts — recursive splitting along natural boundaries (paragraph -> sentence),
+// with overlap so an idea is not cut in half. Each chunk carries metadata for citation.
 
 export interface Chunk { text: string; meta: { source: string; index: number }; }
 

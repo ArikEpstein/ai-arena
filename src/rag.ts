@@ -4,6 +4,7 @@ import { chunk } from "./chunking.js";
 import { VectorStore } from "./vectorStore.js";
 import { rerank } from "./rerank.js";
 import { MODE, MODELS } from "./config.js";
+import { anthropicClient } from "./llm.js";
 
 // "Long" documents (in production: real support/policy docs). Split into chunks automatically.
 const DOCS: Record<string, string> = {
@@ -40,8 +41,7 @@ export async function answerWithRag(question: string): Promise<RagResult> {
   const sources = top.map((h) => ({ text: h.text, source: h.meta.source, score: Number(h.score.toFixed(3)) }));
 
   if (MODE === "live") {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic();
+    const client = await anthropicClient();
     const res = await client.messages.create({
       model: MODELS.work,
       max_tokens: 400,

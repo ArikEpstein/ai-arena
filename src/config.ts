@@ -1,5 +1,4 @@
-// src/config.ts — one place for every decision that changes: models, pricing, run mode.
-// Why it matters: model names and prices change. Centralizing them = a one-line edit.
+// src/config.ts — models, pricing, and run mode, centralized.
 import "./env.js"; // load .env into process.env before MODE is computed (mock stays the default)
 
 export type Mode = "mock" | "live";

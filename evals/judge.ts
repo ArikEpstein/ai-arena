@@ -6,6 +6,7 @@
 // (it reuses the case's substring expectation, so CI stays free and the pass-rate is reproducible);
 // in live it is a real LLM (haiku) scoring the answer against the rubric.
 import { MODE, MODELS } from "../src/config.js";
+import { anthropicClient } from "../src/llm.js";
 import { RECORD, REPLAY, fixtureKey, replayGet, recordPut } from "../src/transcripts.js";
 import { answerMatches } from "./graders.js";
 
@@ -39,8 +40,7 @@ export async function judgeAnswer(
 }
 
 async function liveJudge(rubric: string, question: string, answer: string): Promise<Verdict> {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic();
+  const client = await anthropicClient();
   const res = await client.messages.create({
     model: MODELS.fast, // haiku — cheap, fast; judging is a simpler task than answering
     max_tokens: 200,

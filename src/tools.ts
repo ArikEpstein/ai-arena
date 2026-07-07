@@ -1,4 +1,4 @@
-// src/tools.ts — tools with Zod validation on the args (the first guardrail).
+// src/tools.ts — tools with Zod validation on the args.
 // Model output is untrusted input: validate the schema before touching code/DB.
 import { z } from "zod";
 
@@ -20,54 +20,60 @@ const CUSTOMERS: Record<string, { name: string; store_id: string; points: number
   "c-99": { name: "Yael", store_id: "1001", points: 12, tier: "bronze" },
 };
 
-export const TOOLS: Tool[] = [
-  {
-    name: "get_store_stats",
+// One registry entry per tool: the wire schema sent to the model, the Zod contract that
+// validates the model's arguments (.strict() rejects unexpected keys), and the handler,
+// typed from the Zod schema so the three can't drift apart.
+interface ToolDef<S extends z.ZodTypeAny> {
+  description: string;
+  input_schema: Record<string, unknown>;
+  schema: S;
+  run: (args: z.infer<S>) => unknown;
+}
+
+function defineTool<S extends z.ZodTypeAny>(def: ToolDef<S>): ToolDef<S> {
+  return def;
+}
+
+const REGISTRY = {
+  get_store_stats: defineTool({
     description: "Returns store data: monthly revenue and number of active loyalty members.",
     input_schema: { type: "object", properties: { store_id: { type: "string" } }, required: ["store_id"] },
-  },
-  {
-    name: "lookup_customer",
-    description: "Returns customer details: name, store, points balance, and tier.",
-    input_schema: { type: "object", properties: { customer_id: { type: "string" } }, required: ["customer_id"] },
-  },
-  {
-    name: "calculate_points",
-    description: "Calculates loyalty points for a purchase amount (1 point per 10 shekels).",
-    input_schema: { type: "object", properties: { amount_shekel: { type: "number" } }, required: ["amount_shekel"] },
-  },
-];
-
-// Zod schemas = a validated input contract. If the model sends bad args — we fail gracefully, not crash.
-// .strict() rejects unexpected keys — untrusted model output shouldn't smuggle in extra fields.
-const SCHEMAS: Record<string, z.ZodTypeAny> = {
-  get_store_stats: z.object({ store_id: z.string() }).strict(),
-  lookup_customer: z.object({ customer_id: z.string() }).strict(),
-  calculate_points: z.object({ amount_shekel: z.number().nonnegative() }).strict(),
-};
-
-export function runTool(name: string, rawInput: unknown): unknown {
-  const schema = SCHEMAS[name];
-  if (!schema) return { error: `unknown tool ${name}` };
-  const parsed = schema.safeParse(rawInput);
-  if (!parsed.success) return { error: `invalid args for ${name}`, issues: parsed.error.issues };
-  switch (name) {
-    case "get_store_stats": {
-      const { store_id } = parsed.data as { store_id: string };
+    schema: z.object({ store_id: z.string() }).strict(),
+    run: ({ store_id }) => {
       const store = STORES[store_id];
       return store ? { store_id, ...store } : { error: "store not found" };
-    }
-    case "lookup_customer": {
-      const { customer_id } = parsed.data as { customer_id: string };
+    },
+  }),
+  lookup_customer: defineTool({
+    description: "Returns customer details: name, store, points balance, and tier.",
+    input_schema: { type: "object", properties: { customer_id: { type: "string" } }, required: ["customer_id"] },
+    schema: z.object({ customer_id: z.string() }).strict(),
+    run: ({ customer_id }) => {
       const id = customer_id.toLowerCase(); // a live model may forward "C-77" as typed
       const customer = CUSTOMERS[id];
       return customer ? { customer_id: id, ...customer } : { error: "customer not found" };
-    }
-    case "calculate_points": {
-      const { amount_shekel } = parsed.data as { amount_shekel: number };
-      return { amount_shekel, points: Math.round(amount_shekel * 0.1) };
-    }
-    default:
-      return { error: "unhandled" };
-  }
+    },
+  }),
+  calculate_points: defineTool({
+    description: "Calculates loyalty points for a purchase amount (1 point per 10 shekels).",
+    input_schema: { type: "object", properties: { amount_shekel: { type: "number" } }, required: ["amount_shekel"] },
+    schema: z.object({ amount_shekel: z.number().nonnegative() }).strict(),
+    run: ({ amount_shekel }) => ({ amount_shekel, points: Math.round(amount_shekel * 0.1) }),
+  }),
+} satisfies Record<string, ToolDef<z.ZodTypeAny>>;
+
+export const TOOLS: Tool[] = Object.entries(REGISTRY).map(([name, def]) => ({
+  name,
+  description: def.description,
+  input_schema: def.input_schema,
+}));
+
+export function runTool(name: string, rawInput: unknown): unknown {
+  // Widen to the generic ToolDef so run() accepts its own schema's output (the per-tool
+  // pairing is already guaranteed by defineTool's inference at the definition site).
+  const def: ToolDef<z.ZodTypeAny> | undefined = REGISTRY[name as keyof typeof REGISTRY];
+  if (!def) return { error: `unknown tool ${name}` };
+  const parsed = def.schema.safeParse(rawInput);
+  if (!parsed.success) return { error: `invalid args for ${name}`, issues: parsed.error.issues };
+  return def.run(parsed.data);
 }

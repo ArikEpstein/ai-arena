@@ -25,10 +25,12 @@ export function grade(c: Case, r: Gradable): { pass: boolean; reasons: string[] 
   // Skip the substring answer check when a rubric is present — the LLM-judge grades that answer.
   if (c.answerContains && !c.rubric && !answerMatches(r.answer, c.answerContains))
     reasons.push(`missing from answer '${c.answerContains}'`);
-  // no-hallucinate backstop: strip the queried store id (even inside a longer run), then flag a stray
-  // 4+ digit number that is not a plausible year — a sign the model invented a revenue figure.
-  if (c.id === "no-hallucinate") {
-    const stripped = r.answer.replace(/\d*9999\d*/g, "");
+  // Hallucination backstop: strip every number quoted from the question (even inside a longer run),
+  // then flag a stray 4+ digit number that is not a plausible year — a sign the model invented a figure.
+  if (c.forbidStrayNumbers) {
+    let stripped = r.answer;
+    for (const n of c.question.match(/\d{4,}/g) ?? [])
+      stripped = stripped.replace(new RegExp(`\\d*${n}\\d*`, "g"), "");
     if (/\b(?!(?:19|20)\d{2}\b)\d{4,}\b/.test(stripped)) reasons.push("possibly an invented number");
   }
   return { pass: reasons.length === 0, reasons };
